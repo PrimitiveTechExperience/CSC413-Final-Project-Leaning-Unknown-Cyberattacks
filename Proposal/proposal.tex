@@ -1,0 +1,244 @@
+\documentclass{article}
+\usepackage[main, final]{neurips_2026}
+% Cybersecurity: Whether signal pulse can predict cybersecurity risks: Do machines learn new attack vectors or simply memorize.
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+\usepackage{tikz}
+\usepackage{amsmath}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric}
+\renewcommand{\bibsection}{\section{References}}
+% \newcommand{\operatorname}[1]{\text{#1}}
+\title{Beyond Known Attacks: Can Deep Learning Models Detect Previously Unknown Cyberattacks?}
+
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to break the
+% lines. Using \AND forces a line break at that point. So, if LaTeX puts 3 of 4
+% authors names on the first line, and the last on the second line, try using
+% \AND instead of \And before the third author name.
+
+
+\author{%
+ Ryan H. Lin \\
+  Department of Mathematical and Computer Sciences\\
+  University of Toronto\\
+  Mississauga, ON, L5L 1C6 \\
+  \texttt{ryanh.lin@mail.utoronto.ca} \\
+  % examples of more authors
+  \And
+ Sebastian Sperneac \\
+  Department of Mathematical and Computer Sciences\\
+  University of Toronto\\
+  Mississauga, ON, L5L 1C6 \\
+  \texttt{sebastian.sperneac@mail.utoronto.ca} \\
+  % \AND
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+}
+
+
+\begin{document}
+
+
+\maketitle
+
+
+\begin{abstract}
+  The abstract paragraph should be indented \nicefrac{1}{2}~inch (3~picas) on both the left- and right-hand margins. Use 10~point type, with a vertical spacing (leading) of 11~points. The word \textbf{Abstract} must be centered, bold, and in point size 12. Two line spaces precede the abstract. The abstract must be limited to one paragraph.
+\end{abstract}
+
+\section{Introduction}
+\label{introduction}
+lorem ipsum dolor sit amet consectetur adipiscing elit rerum libero aliquip voluptas ad consequat reprehenderit quibusdam in velit et sint quidem dolorem et deserunt ut consectetur minus dignissimos aliquip excepturi in quis distinctio aut temporibus sit laborum sint esse vel sint soluta commodo sed excepturi anim ipsum do temporibus voluptate sit consequatur aute ut optio ex fugiat tempore eu id non pariatur mollitia labore cillum fugiat nostrud vero harum soluta laborum temporibus autem ea est aute anim deserunt id do cillum lorem atque qui similique id assumenda occaecat et ut ea voluptas eu dolor autem quos voluptas provident sed expedita
+
+\section{Background and Past Literature}
+\label{past-literature}
+\paragraph{System-call intrusion detection.} Host-based intrusion detection systems (HIDS) monitor the behavior of a single machine, often through the sequence of system calls its processor issues. \citet{forrest1996unm} demonstrated that short call sequences form a stable profile of normal program behavior, resulting in \citet{hofmeyr1998stide} transforming this research into STIDE, which flags sequences absent from a database of benign $n$-grams, forming one of the standard baselines used today. Some early benchmarks to use this include the DARPA 1998/99 evaluations~\citep{lippmann2000darpa98,lippmann2000darpa99}, the UNM traces~\citep{forrest1996unm}, and ADFA-LD~\citep{creech2013adfald}. As many of theses datasets are outdated, LID-DS~\citep{grimmer2019lidds, grimmer2023lidds2021} was built to replace them, with additions such as new modern vulnerabilities and per-call attack labels. (See Section~\ref{data}).
+
+\paragraph{Deep learning models.} \citet{kim2016lstm} treated system calls as words, and trained a Long Short-Term Memory (LSTM) language model on benign traces, flagging sequences with a low likelihood: For example, several models reach an AUC of 0.928 on ADFA-LD. Further work done by \citet{ring2021methods} compared several models, such as LSTM and Convolution Neural networks (CNN)/Recurrent Neural Networks (RNN) on ADFA-LD and a newer dataset, found that the optimal architecture was dependent on the choice of dataset. The most related work on architecture comparison came from the work of \citet{fournier2023language}, who pitted a Transformer against an LSTM for next-call prediction on kernel traces of a web server, with anomaly introduced as controlled configuration changes rather than standard attacks. Their work noted how both architecture performed similarly, with the LSTM model matching or exceeding the Transformer only on three of the six novelty types, and noting how the attention was local. However, all of these studies focus on models whom trained only on benign data - none of these compare models whom have trained on data with attacks.
+
+\paragraph{On Generalization.} Whether or not learned detectors can generalize has been debated on for over a decade. Papers, such as \citet{sommer2010outside}, argue that intrusion detection is fundamentally different from common successful machine learning tasks, while others, like \citet{arp2022dos}, document several recurring evaluation flaws across multiple papers, such as data snooping. Outside of lab settings, autoencoders trained on safe network traffic can detect multiple held-out attack types, as notes in ~\citep{hindy2020zeroday}. However, both supervised and unsupervised network detector models perform worse when tested on different datasets~\citep{layeghy2022generalisability}. However, much of this work focuses on networks rather than system calls.
+
+\paragraph{Transfer to LID-DS.} The closest prior work is that of \citet{ajayi2022crossdomain}, who treated each scenario as a domain and transfer of a CNN from a similar source scenario to a data-poor target. However, their target-model is tuned on the target scenario's own labeled attacks, which addressses learning from a few examples rather than an unknown attack vector. Our work is designed to address this hole: we withhold each scenario's attacks entirely, comparing against a model trained on them, to measure how much the performance of a supervised detector stems from memorization.
+
+\section{Data}
+\label{data}
+\subsection{Dataset}
+This project will use the Leipzig Intrusion Detection Data Set, specfically the 2021 version (LID-DS-2021)~\citet{grimmer2023lidds2021}, a host-based intrusion detection (HIDS) dataset of the linux system call traces, developed at Leipzig Univeristy. It is public and is found at \url{https://github.com/LID-DS/LID-DS}. It succeeds the 2019 edition (LID-DS-2019)~\citet{grimmer2019lidds}, and fixes issues such as incorrectly timed attack labels, and lossless data buffer encoding. Furthermore, it features 8.5 times the number of system calls compared to the 2019 edition, and standard sequence-based baselines, like STIDE~\citep{hofmeyr1998stide}, performs worse on it~\citep{grimmer2023lidds2021}, making it the better choice for our project.
+
+From research, we chose this dataset over older HIDS benchmarks for the following reasons:
+\begin{enumerate}
+    \item \textbf{Recency:} Much more recent than other benchmarks, reflecting better current systems rather than antiquated systems.
+    \item \textbf{Quality:} Contains better information per system call compared to others (i.e. ADFA-LD uses integer-coded system call sequences.)
+    \item \textbf{Control:} The attacks are labeled at the level of individual timestamps, spanning several distinct vulnerabilities, giving us the control of the types of attacks exposed to the model.
+\end{enumerate}
+
+\subsection{Scenarios}
+\label{data:scenarios}
+The dataset is split into 15 distinct scenarios (Found at Table`\ref{tab:scenarios}). Every Scenario runs a vulnerable service in a Docker container (referred as the \emph{victim}), which simulates harmless users in separate containers, and in attack recordings, an attacker container that exploits a publicly documented vulnerability (a CVE) or weakness class (a CWE). 11 scenarios are \emph{single-step} attacks, and the other four scenarios are \emph{multi-step} attacks, where the attacks performs reconnaissance (i.e. port scanning), a credential attack or privilege escalation, and finally code execution, each step being labeled separately.
+
+\begin{table}[t]
+    \centering
+    % \small
+    \begin{tabular}{lllll}
+         \toprule
+    Scenario & Vulnerable software & Attack & Type \\
+    \midrule
+    Bruteforce\_CWE-307   & Web app (login)          & Password brute force                    & S \\
+    CVE-2012-2122         & MySQL                    & Authentication bypass                   & S \\
+    CVE-2014-0160         & OpenSSL (Heartbleed)     & Memory over-read / data leak            & S \\
+    CVE-2017-7529         & nginx                    & Integer overflow / data leak            & S \\
+    CVE-2018-3760         & Sprockets (Rails)        & Path traversal                          & S \\
+    CVE-2019-5418         & Ruby on Rails            & File content disclosure                 & S \\
+    CVE-2020-9484         & Apache Tomcat            & Deserialisation $\rightarrow$ RCE       & S \\
+    CWE-89-SQL-injection  & DVWA                     & SQL injection                           & S \\
+    PHP\_CWE-434          & DVWA                     & Malicious file upload                   & S \\
+    EPS\_CWE-434          & EPS-to-SVG converter     & Malicious file upload $\rightarrow$ RCE & S \\
+    ZipSlip               & Java unzip service       & Archive path traversal                  & S \\
+    CVE-2017-12635\_6     & CouchDB                  & Priv.\ escalation $\rightarrow$ RCE     & M \\
+    CVE-2020-13942        & Apache Unomi             & Expression injection $\rightarrow$ RCE  & M \\
+    CVE-2020-23839        & GetSimple CMS            & XSS $\rightarrow$ RCE                   & M \\
+    Juice-Shop            & OWASP Juice Shop         & Multiple web vulnerabilities            & M \\
+    \bottomrule
+    \end{tabular}
+    \caption{The 15 LID-DS-2021 scenarios. ``Type'' is single-step (S) or multi-step (M).}
+    \label{tab:scenarios}
+\end{table}
+\subsection{Recording format}
+\label{data:format}
+Each scenario contains several independent \emph{recordings}, each a short run of the victim. Each recording includes:
+\begin{enumerate}
+    \item A system call trace,
+    \item a packet capture (\texttt{pcap}) of the victim's network traffic,
+    \item per-second resource statistics (such as CPU, memory, network, and disk I/O)
+    \item JSON metadata.
+\end{enumerate}
+Every system call line records a timestamp, user ID, process ID, name, thread ID, system call name, direction (entry or exit), call arguments, and return value, which includes the first bytes of any data buffer. The JSON metadata states whether a recording contains an exploit. If the recording does contain an exploit, the time the attack reached the victim is also given, alongside labels on every system call; every call pre-attack is labeled benign, and all calls post-attack labeled malicious.
+
+\subsection{Splits and preprocessing}
+\label{data:splits}
+LID-DS-2021's official partitions place all attack recordings in the test set. In our case, we re-split its test recordings at the recording level, with a $70/15/15$ split, using a stratified, fixed seed. Afterwards, we merge them with the official benign training and validation sets. We introduce two settings:
+\begin{itemize}
+    \item In the \emph{seen-attack} setting, a model is trained and tested on a single scenario.
+    \item In the \emph{held-out attack} setting, a model is trained on 14 of the 15 scenarios, and the benign recordings of the held-out scenario ($a$). We choose the decision threshold $\tau$ on the 14 scenarios' validation sets, and tested on $a$.
+\end{itemize}
+With $a$'s application being familiar to the model, the gap between the two settings measures the memorization of attacks instead of whether the model is familiar with the environment. No test or held-out attack data is used for model selection nor calibration~\citep{arp2022dos}.
+ 
+We keep only the entry events (a token per call), and discard calls before each recording's warm-up ends. We then split recordings into per-thread streams, ensuring that windows after an attack begins are not mislabeled by benign threads~\citep{grimmer2021thread}. Streams are then cut into non-overlapping windows, with $L=100$, padded where shorter. Windows are labeled malicious if it contains calls after the exploitation step. Reconnaissance steps are labeled benign in multi-step scenarios. We will use class-weighted BCE in training, with validation and tests keeping their natural class ratio.
+
+% TODO before submission: one sentence or small table with recordings and
+% windows per class and partition, vocabulary size, and unknown-token rate.
+\section{Modelling}
+\label{sec:modelling}
+
+We compare two sequence classifiers, a long short-term memory (LSTM) network~\citep{hochreiter1997lstm} and a Transformer~\citep{vaswani2017attention}, to test whether patterns learned from known attacks transfer to attacks withheld during training. Both models receive the same labelled system-call windows described in Section~\ref{data:splits} and predict whether a window contains malicious activity. Unlike a benign-only anomaly detector, our models are trained with examples of both benign behaviour and attacks from the training scenarios.
+
+\subsection{Input representation}
+\label{model:input}
+
+As described in Section~\ref{data:splits}, we retain system-call entry events, separate traces into per-thread streams, and construct non-overlapping windows of $L=100$ calls without crossing recording boundaries. Each window $X_i=(s_{i,1},\ldots,s_{i,L})$ has a label $y_i\in\{0,1\}$: $1$ if the window contains a call labelled malicious under the Data section's attack-timing policy, and $0$ otherwise. Short windows are padded and masked. We use system-call names as categorical inputs, omitting arguments, process IDs, and scenario names to limit the use of exploit-specific identifiers.
+
+A vocabulary $\mathcal V$ is built from training data only; unseen names are mapped to an unknown token. Each call is assigned a learned embedding $\mathbf e_{i,t}=E[s_{i,t}]\in\mathbb R^{128}$. This produces a sequence of vectors for either classifier. The vocabulary, window length, and input representation are kept identical for the two architectures.
+
+\subsection{LSTM classifier}
+\label{model:lstm}
+
+The LSTM processes embedded calls sequentially, updating a hidden state $\mathbf h_t$ and memory state $\mathbf c_t$:
+\begin{equation}
+(\mathbf h_t,\mathbf c_t)=\operatorname{LSTM}(\mathbf e_t,\mathbf h_{t-1},\mathbf c_{t-1}).
+\end{equation}
+We propose two unidirectional LSTM layers with 128 hidden units and dropout $0.2$ between layers. The final non-padding hidden state represents the window, and a linear layer followed by a sigmoid produces its predicted probability of malicious activity.
+
+\subsection{Transformer classifier}
+\label{model:transformer}
+
+The Transformer processes the same embeddings with positional encodings and self-attention, enabling each call to interact with other calls in the observed window. For input representations $H$, one attention head computes
+\begin{equation}
+\operatorname{Attention}(Q,K,V)
+=\operatorname{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}+M\right)V,
+\quad Q=HW_Q,\;K=HW_K,\;V=HW_V,
+\end{equation}
+where $M$ masks padding positions. Since the task is whole-window classification rather than next-call prediction, we do not mask future positions. We propose two Transformer encoder blocks with four attention heads, model width 128, feed-forward width 256, and dropout $0.2$. We average the non-padding output representations and pass the result through a linear layer and sigmoid to obtain an attack probability.
+
+\subsection{Training and prediction}
+\label{model:training}
+
+For a window $X_i$, either model estimates $\hat p_i=P_\theta(y_i=1\mid X_i)$. In accordance with Section~\ref{data:splits}, we train on benign windows and labelled attack windows from the training scenarios, using class-weighted binary cross-entropy to address class imbalance:
+\begin{equation}
+\mathcal L(\theta)=-\frac{1}{N}\sum_{i=1}^N
+\left[w_1 y_i\log\hat p_i+w_0(1-y_i)\log(1-\hat p_i)\right],
+\end{equation}
+where $w_0$ and $w_1$ are computed from the training partition only. A window is classified as malicious when $\hat p_i>\tau$, where $\tau$ is selected from the permitted validation data and fixed before testing. We use the same training protocol and threshold-selection rule for both architectures.
+
+We evaluate each architecture in the seen-attack and held-out-attack settings defined in Section~\ref{data:splits}. For held-out scenario $a$, the model learns from attacks in the other 14 scenarios but no malicious windows from $a$; benign recordings from $a$ may still be present in training. Therefore, successful detection on $a$ would indicate transfer to a withheld attack scenario in a partly familiar environment, not guaranteed detection of all novel exploits.
+
+\subsection{Model architecture figure}
+\label{model:figure}
+
+Figure~\ref{fig:model_pipeline} shows the two classifiers. They share the input representation and labels, but are trained separately with their own sequence encoder and classification head.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\node[draw,rounded corners,align=center] (data) at (0,0) {Labelled system-call windows};
+\node[draw,rounded corners,align=center] (embed) at (0,-1.0) {Token embeddings};
+\node[draw,rounded corners,align=center] (lstm) at (-2.2,-2.2) {LSTM};
+\node[draw,rounded corners,align=center] (trans) at (2.2,-2.2) {Transformer encoder};
+\node[draw,rounded corners,align=center] (pool1) at (-2.2,-3.4) {Final valid hidden state};
+\node[draw,rounded corners,align=center] (pool2) at (2.2,-3.4) {Masked mean pooling};
+\node[draw,rounded corners,align=center] (head1) at (-2.2,-4.6) {Sigmoid classifier};
+\node[draw,rounded corners,align=center] (head2) at (2.2,-4.6) {Sigmoid classifier};
+\node[draw,rounded corners,align=center] (eval) at (0,-5.9) {Seen / held-out attack tests};
+\draw[->] (data) -- (embed);
+\draw[->] (embed) -- (lstm);
+\draw[->] (embed) -- (trans);
+\draw[->] (lstm) -- (pool1);
+\draw[->] (trans) -- (pool2);
+\draw[->] (pool1) -- (head1);
+\draw[->] (pool2) -- (head2);
+\draw[->] (head1) -- (eval);
+\draw[->] (head2) -- (eval);
+\end{tikzpicture}
+\caption{Proposed supervised LSTM and Transformer pipelines. Both learn from benign activity and known attacks, and are then tested on withheld attack scenarios.}
+\label{fig:model_pipeline}
+\end{figure}
+
+
+\section{Ethical Considerations}
+\label{sec:ethics}
+
+Although the proposed models are intended to improve host-based intrusion detection, their predictions may produce errors with operational consequences. False positives could incorrectly flag legitimate system activity as malicious, potentially disrupting services if alerts were used to trigger automatic responses. Conversely, false negatives could allow malicious activity to remain undetected. We therefore treat model outputs as indicators for further investigation rather than definitive evidence of an attack, and do not propose autonomous enforcement actions.
+
+A further limitation arises from the use of LID-DS-2021, whose recordings are generated in controlled environments. Although withholding attack scenarios allows us to evaluate generalization beyond known attacks, the resulting performance may not transfer to production systems with different software configurations, workloads, or patterns of benign activity. In particular, recognizing a held-out attack scenario does not demonstrate that the model can detect arbitrary zero-day vulnerabilities. We therefore distinguish cross-scenario generalization from real-world detection capability when interpreting results.
+
+System-call recordings may also contain sensitive information, including process identifiers, file paths, and application inputs. While our initial models use system-call names rather than raw argument strings, the underlying recordings must still be handled carefully. We will restrict processing to the publicly released dataset and avoid publishing unnecessary raw traces or potentially sensitive metadata.
+
+Finally, intrusion-detection research presents a dual-use concern. Analyses of model failures could help improve defensive systems, but detailed information about successful evasion patterns could also benefit attackers. We will report aggregate detection performance and model limitations without providing instructions for exploiting vulnerabilities or evading deployed detection systems.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+\section{Appendix}
+    \subsection{Work Division.}
+    lorem ipsum dolor sit amet consectetur adipiscing elit rerum libero aliquip voluptas ad consequat reprehenderit quibusdam in velit et sint quidem dolorem et deserunt ut consectetur minus dignissimos aliquip excepturi in quis distinctio aut temporibus sit laborum sint esse vel sint soluta commodo sed excepturi anim ipsum do temporibus voluptate sit consequatur aute ut optio ex fugiat tempore eu id non pariatur mollitia labore cillum fugiat nostrud vero harum soluta laborum temporibus autem ea est aute anim deserunt id do cillum lorem atque qui similique id assumenda occaecat et ut ea voluptas eu dolor autem quos voluptas provident sed expedita
+\end{document}
