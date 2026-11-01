@@ -158,64 +158,237 @@ We keep only the entry events (a token per call), and discard calls before each 
 \section{Modelling}
 \label{sec:modelling}
 
-We compare two sequence classifiers, a long short-term memory (LSTM) network~\citep{hochreiter1997lstm} and a Transformer~\citep{vaswani2017attention}, to test whether patterns learned from known attacks transfer to attacks withheld during training. Both models receive the same labelled system-call windows described in Section~\ref{data:splits} and predict whether a window contains malicious activity. Unlike a benign-only anomaly detector, our models are trained with examples of both benign behaviour and attacks from the training scenarios.
+We use two sequence classifiers, a long short-term memory
+(LSTM) network~\citep{hochreiter1997lstm} and a Transformer
+encoder~\citep{vaswani2017attention}, to compare how well
+they can detect attacks that were not included during
+training. Both models use the same labelled system-call
+windows described in Section~\ref{data:splits}, and predict
+whether a window contains malicious activity. Since we want
+to test how well the models generalize from known attacks,
+we train them using both benign activity and malicious
+activity from the training scenarios, rather than only
+using benign data.
 
 \subsection{Input representation}
 \label{model:input}
 
-As described in Section~\ref{data:splits}, we retain system-call entry events, separate traces into per-thread streams, and construct non-overlapping windows of $L=100$ calls without crossing recording boundaries. Each window $X_i=(s_{i,1},\ldots,s_{i,L})$ has a label $y_i\in\{0,1\}$: $1$ if the window contains a call labelled malicious under the Data section's attack-timing policy, and $0$ otherwise. Short windows are padded and masked. We use system-call names as categorical inputs, omitting arguments, process IDs, and scenario names to limit the use of exploit-specific identifiers.
+As described in Section~\ref{data:splits}, we only retain
+system-call entry events and separate the recordings into
+streams for each thread. We then divide these streams into
+non-overlapping windows of varying lengths, using 50, 100,
+and 200 system calls. For each successive window, the target
+length is selected using a fixed random seed. No window
+crosses between recordings, and shorter final windows are
+also retained.
 
-A vocabulary $\mathcal V$ is built from training data only; unseen names are mapped to an unknown token. Each call is assigned a learned embedding $\mathbf e_{i,t}=E[s_{i,t}]\in\mathbb R^{128}$. This produces a sequence of vectors for either classifier. The vocabulary, window length, and input representation are kept identical for the two architectures.
+Each window is represented as
+$X_i=(s_{i,1},\ldots,s_{i,L_i})$,
+where $L_i$ is the actual number of system calls in the
+window. Each window is assigned a label $y_i\in\{0,1\}$.
+A label of $1$ means the window contains at least one
+call labelled as malicious according to the attack-timing
+policy described in the Data section, while $0$ indicates
+benign activity.
+
+To allow windows of different lengths to be processed
+together, shorter windows are padded to a maximum length
+of 200 calls. The padding is masked so that it does not
+affect the models' predictions.
+
+We only use the names of system calls as inputs, leaving
+out arguments, process IDs, and scenario names. This is
+intended to reduce the chance of the models relying on
+information specific to individual attacks.
+
+We create a vocabulary $\mathcal V$ using only the training
+data, with any system calls not found in the vocabulary
+assigned an unknown token. Each call is then converted
+into a learned embedding
+$\mathbf e_{i,t}=E[s_{i,t}]\in\mathbb R^{128}$.
+
+Both models use the same vocabulary, input representation,
+and generated windows so that we can compare their
+performance under the same conditions. Their embedding
+weights are learned separately.
 
 \subsection{LSTM classifier}
 \label{model:lstm}
 
-The LSTM processes embedded calls sequentially, updating a hidden state $\mathbf h_t$ and memory state $\mathbf c_t$:
+The LSTM reads the system calls in order, updating its
+hidden state $\mathbf h_t$ and memory state $\mathbf c_t$
+after each call:
+
 \begin{equation}
-(\mathbf h_t,\mathbf c_t)=\operatorname{LSTM}(\mathbf e_t,\mathbf h_{t-1},\mathbf c_{t-1}).
+(\mathbf h_t,\mathbf c_t)
+=\operatorname{LSTM}(\mathbf e_t,\mathbf h_{t-1},
+\mathbf c_{t-1}).
 \end{equation}
-We propose two unidirectional LSTM layers with 128 hidden units and dropout $0.2$ between layers. The final non-padding hidden state represents the window, and a linear layer followed by a sigmoid produces its predicted probability of malicious activity.
+
+We plan to use two unidirectional LSTM layers, each with
+128 hidden units, and a dropout rate of $0.2$ between
+the layers.
+
+Once the sequence has been processed, we use the final
+hidden state corresponding to a non-padding token to
+represent the window. Padding positions are excluded
+from the recurrent computation.
+
+This representation is passed through a linear layer
+followed by a sigmoid function, which produces a
+probability that the window contains malicious activity.
 
 \subsection{Transformer classifier}
 \label{model:transformer}
 
-The Transformer processes the same embeddings with positional encodings and self-attention, enabling each call to interact with other calls in the observed window. For input representations $H$, one attention head computes
+The Transformer uses the same system-call input
+representation as the LSTM, but processes the sequence
+using self-attention instead of reading the calls one
+at a time. This allows the model to consider relationships
+between different calls within a window. We also add
+positional encodings so that the model has information
+about the order in which the calls occurred.
+
+For an input representation $H$, the attention calculation
+for one head is given by
+
 \begin{equation}
 \operatorname{Attention}(Q,K,V)
-=\operatorname{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}+M\right)V,
-\quad Q=HW_Q,\;K=HW_K,\;V=HW_V,
+=\operatorname{softmax}\!\left(
+\frac{QK^\top}{\sqrt{d_k}}+M
+\right)V,
+\quad
+Q=HW_Q,\;K=HW_K,\;V=HW_V,
 \end{equation}
-where $M$ masks padding positions. Since the task is whole-window classification rather than next-call prediction, we do not mask future positions. We propose two Transformer encoder blocks with four attention heads, model width 128, feed-forward width 256, and dropout $0.2$. We average the non-padding output representations and pass the result through a linear layer and sigmoid to obtain an attack probability.
+
+where $M$ is used to mask the padding positions.
+Since our task is to classify an entire window rather
+than predict the next system call, the model is allowed
+to attend to all non-padding positions.
+
+We propose using two Transformer encoder blocks with
+four attention heads, a model width of 128, a feed-forward
+width of 256, and dropout of $0.2$.
+
+After the sequence passes through the encoder, we take
+the average of the non-padding output representations.
+This is then passed through a linear layer and sigmoid
+function to predict the probability of malicious activity.
 
 \subsection{Training and prediction}
 \label{model:training}
 
-For a window $X_i$, either model estimates $\hat p_i=P_\theta(y_i=1\mid X_i)$. In accordance with Section~\ref{data:splits}, we train on benign windows and labelled attack windows from the training scenarios, using class-weighted binary cross-entropy to address class imbalance:
+Both models are trained to predict whether a window
+contains malicious activity. For an input window $X_i$,
+the predicted probability is
+$\hat p_i=P_\theta(y_i=1\mid X_i)$.
+
+As described in Section~\ref{data:splits}, the training
+data contains benign windows and malicious windows from
+the selected training scenarios.
+
+Since the number of benign and malicious windows may
+differ, we use class-weighted binary cross-entropy as
+the loss function:
+
 \begin{equation}
 \mathcal L(\theta)=-\frac{1}{N}\sum_{i=1}^N
-\left[w_1 y_i\log\hat p_i+w_0(1-y_i)\log(1-\hat p_i)\right],
+\left[
+w_1 y_i\log\hat p_i
++w_0(1-y_i)\log(1-\hat p_i)
+\right],
 \end{equation}
-where $w_0$ and $w_1$ are computed from the training partition only. A window is classified as malicious when $\hat p_i>\tau$, where $\tau$ is selected from the permitted validation data and fixed before testing. We use the same training protocol and threshold-selection rule for both architectures.
 
-We evaluate each architecture in the seen-attack and held-out-attack settings defined in Section~\ref{data:splits}. For held-out scenario $a$, the model learns from attacks in the other 14 scenarios but no malicious windows from $a$; benign recordings from $a$ may still be present in training. Therefore, successful detection on $a$ would indicate transfer to a withheld attack scenario in a partly familiar environment, not guaranteed detection of all novel exploits.
+where $w_0$ and $w_1$ are the weights for the benign
+and malicious classes, calculated using only the
+training data.
+
+A window is predicted to be malicious when its probability
+is greater than a threshold $\tau$. We select this
+threshold using the allowed validation data before
+evaluating the models on the test set.
+
+Both models follow the same training procedure and
+threshold-selection method to keep the comparison
+consistent.
+
+We evaluate the LSTM and Transformer using the
+seen-attack and held-out-attack settings described
+in Section~\ref{data:splits}.
+
+For a held-out scenario $a$, the models are trained
+using attacks from the other 14 scenarios, but do not
+receive any malicious windows from scenario $a$
+during training. Benign recordings from that scenario
+may still be included.
+
+This allows us to test whether the models can recognize
+malicious behaviour from an attack scenario they have
+not previously encountered. However, since the benign
+activity from that scenario may already be familiar
+to the model, good performance would not necessarily
+mean that the model could detect any new attack in
+a real system.
+
+We will also compare detection performance across
+different window lengths to investigate whether
+additional system-call context improves the models'
+ability to generalize to previously unseen attacks.
+
+Since longer windows may have a higher chance of
+containing malicious calls, we will also consider
+the proportion of malicious windows at each length
+when interpreting these results.
 
 \subsection{Model architecture figure}
 \label{model:figure}
 
-Figure~\ref{fig:model_pipeline} shows the two classifiers. They share the input representation and labels, but are trained separately with their own sequence encoder and classification head.
+Figure~\ref{fig:model_pipeline} shows the structure of
+both models. They use the same input representation
+and labels, but are trained separately using their
+own sequence encoder and classification layer.
 
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}
-\node[draw,rounded corners,align=center] (data) at (0,0) {Labelled system-call windows};
-\node[draw,rounded corners,align=center] (embed) at (0,-1.0) {Token embeddings};
-\node[draw,rounded corners,align=center] (lstm) at (-2.2,-2.2) {LSTM};
-\node[draw,rounded corners,align=center] (trans) at (2.2,-2.2) {Transformer encoder};
-\node[draw,rounded corners,align=center] (pool1) at (-2.2,-3.4) {Final valid hidden state};
-\node[draw,rounded corners,align=center] (pool2) at (2.2,-3.4) {Masked mean pooling};
-\node[draw,rounded corners,align=center] (head1) at (-2.2,-4.6) {Sigmoid classifier};
-\node[draw,rounded corners,align=center] (head2) at (2.2,-4.6) {Sigmoid classifier};
-\node[draw,rounded corners,align=center] (eval) at (0,-5.9) {Seen / held-out attack tests};
+\begin{tikzpicture}[
+    every node/.style={
+        draw,
+        rounded corners,
+        align=center,
+        font=\small,
+        inner sep=5pt
+    },
+    >=stealth
+]
+
+\node (data) at (0,0)
+    {System-call windows\\(50, 100, 200 calls)};
+
+\node (embed) at (0,-1.2)
+    {Token embeddings\\(128 dimensions)};
+
+\node (lstm) at (-2.3,-2.6)
+    {LSTM\\2 layers, 128 units};
+
+\node (trans) at (2.3,-2.6)
+    {Transformer encoder\\2 blocks, 4 heads};
+
+\node (pool1) at (-2.3,-4.0)
+    {Final valid\\hidden state};
+
+\node (pool2) at (2.3,-4.0)
+    {Masked mean\\pooling};
+
+\node (head1) at (-2.3,-5.3)
+    {Sigmoid classifier};
+
+\node (head2) at (2.3,-5.3)
+    {Sigmoid classifier};
+
+\node (eval) at (0,-6.7)
+    {Seen / held-out attack tests\\
+     Window length comparison};
+
 \draw[->] (data) -- (embed);
 \draw[->] (embed) -- (lstm);
 \draw[->] (embed) -- (trans);
@@ -225,8 +398,15 @@ Figure~\ref{fig:model_pipeline} shows the two classifiers. They share the input 
 \draw[->] (pool2) -- (head2);
 \draw[->] (head1) -- (eval);
 \draw[->] (head2) -- (eval);
+
 \end{tikzpicture}
-\caption{Proposed supervised LSTM and Transformer pipelines. Both learn from benign activity and known attacks, and are then tested on withheld attack scenarios.}
+
+\caption{The proposed LSTM and Transformer models.
+Both are trained using benign activity and known attacks,
+and evaluated on seen and held-out attack scenarios.
+Different window lengths are used to investigate how
+sequence length affects detection performance.}
+
 \label{fig:model_pipeline}
 \end{figure}
 
