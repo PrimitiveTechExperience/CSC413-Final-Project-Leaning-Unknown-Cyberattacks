@@ -71,7 +71,7 @@
 
 
 \begin{abstract}
-  The abstract paragraph should be indented \nicefrac{1}{2}~inch (3~picas) on both the left- and right-hand margins. Use 10~point type, with a vertical spacing (leading) of 11~points. The word \textbf{Abstract} must be centered, bold, and in point size 12. Two line spaces precede the abstract. The abstract must be limited to one paragraph.
+  Deep learning models for host-based intrusion detection systems often show strong performance. However, it is unclear whether they have learned generalizable patterns or are simply memorizing attacks. Here we propose to investigate this using the LID-DS-2021 dataset, a modern dataset containing system call logs from a Linux system covering 15 attack scenarios. Two supervised models (an LSTM and a Transformer encoder) are trained on windows of 100 system call names, labeled either benign or malicious. Each network is trained and tested in both a seen-attack setting (training and testing on the same scenario) and a held-out setting (where the attacks from one scenario are withheld during training, while its benign recordings remain available). The difference in performance between the two settings gives an indication of how much the attack detection is due to memorization. Comparing the performance of the LSTM and Transformer under the same protocol also indicates whether attention-based models generalize differently from recurrent models. Our results will indicate generalization across scenarios rather than detection of arbitrary zero-day attacks.
 \end{abstract}
 
 \section{Introduction}
