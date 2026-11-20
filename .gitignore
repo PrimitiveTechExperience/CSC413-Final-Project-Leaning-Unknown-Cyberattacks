@@ -1,0 +1,30 @@
+# Local working notes (never commit)
+notes/
+*_temp.md
+
+# Dataset and generated artefacts
+data/
+results/
+checkpoints/
+*.npz
+*.pt
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# LaTeX build output
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc

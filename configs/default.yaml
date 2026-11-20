@@ -1,0 +1,56 @@
+# Default experiment configuration. Values mirror the proposal (Proposal/proposal.tex).
+seed: 413
+
+paths:
+  raw_root: data/raw/LID-DS-2021      # contains one folder per scenario
+  processed_root: data/processed      # output of scripts/prepare_data.py
+  results_root: results
+
+data:
+  # Re-split of the official *test* recordings (Sec. 3.4): train / val / test.
+  test_resplit: [0.70, 0.15, 0.15]
+  # Window lengths (Sec. 4.1). "variable": each successive window draws its
+  # target length from `window_lengths`; "fixed": every window uses `fixed_length`.
+  window_mode: variable
+  window_lengths: [50, 100, 200]
+  fixed_length: 100
+  max_length: 200                      # padding length
+  keep_short_final_window: true
+  # Exploit steps whose name matches any of these (case-insensitive substring)
+  # are treated as reconnaissance and therefore labelled benign (Sec. 3.4).
+  recon_step_keywords: [recon, scan, nmap]
+  max_recordings_per_partition: null   # set an int for quick debugging runs
+
+experiment:
+  # seen     : attacks of the target scenario are in training.
+  # held_out : malicious recordings of the target scenario are removed from train/val.
+  setting: held_out
+  # Training scope for the seen setting: "all" = all 15 scenarios (same pool as
+  # held_out plus the target's attacks), "single" = target scenario only.
+  seen_scope: all
+  scenario: CVE-2014-0160
+  model: lstm                          # lstm | transformer
+
+model:
+  embed_dim: 128
+  dropout: 0.2
+  lstm:
+    hidden_size: 128
+    num_layers: 2
+  transformer:
+    num_layers: 2
+    num_heads: 4
+    ff_dim: 256
+
+training:
+  batch_size: 256
+  epochs: 20
+  lr: 1.0e-3
+  weight_decay: 0.0
+  early_stopping_patience: 3
+  num_workers: 0
+  device: auto                         # auto | cpu | cuda
+
+evaluation:
+  # Threshold tau is chosen on the allowed validation data only.
+  threshold_metric: f1                 # f1 | youden
