@@ -3,7 +3,7 @@ notes/
 *_temp.md
 
 # Dataset and generated artefacts
-data/
+/data/
 results/
 checkpoints/
 *.npz

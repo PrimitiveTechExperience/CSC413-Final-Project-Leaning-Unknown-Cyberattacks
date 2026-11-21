@@ -61,7 +61,8 @@ data/raw/LID-DS-2021/<scenario>/training/*.zip
                                 /test/normal_and_attack/*.zip
 ```
 
-`data/`, `results/` and checkpoints are git-ignored.
+The root `data/`, `results/` and checkpoints are git-ignored; the source package
+`src/lidds_gen/data/` is tracked.
 
 ## Running
 
@@ -73,7 +74,29 @@ python scripts/run_all.py                              # full grid
 ```
 
 Any config value can be overridden with `--set dotted.key=value`. For a quick
-debug pass use `--set data.max_recordings_per_partition=5 training.epochs=1`.
+debug pass use `--set data.max_recordings_per_partition=5 training.epochs=1`
+when preparing data and running experiments. Changing the seed, window settings,
+reconnaissance keywords, or recording limit requires re-running `prepare_data.py`;
+experiment assembly rejects caches prepared with different settings.
+
+The default seen setting trains on all scenarios. To follow the proposal's
+single-scenario seen baseline, pass `--set experiment.seen_scope=single`.
+Held-out training keeps the target's benign training recordings, excludes all
+of its attack recordings, and uses only other scenarios for validation.
+
+To debug held-out training with a smaller pool, set `data.scenarios` explicitly
+(for example, `--set 'data.scenarios=[CVE-2014-0160,ZipSlip]'`) in both preparation
+and training commands. This changes the experiment; full results require all 15
+scenarios. `run_all.py --scenarios ...` selects evaluation targets only.
+
+Preprocessing follows the upstream [syscall columns](https://github.com/LID-DS/LID-DS/blob/master/dataloader/syscall_2021.py)
+and [recording metadata](https://github.com/LID-DS/LID-DS/blob/master/dataloader/recording_2021.py).
+Missing exploit timing raises an error instead of silently assigning benign
+labels. If every timed step matches a reconnaissance keyword, the recording
+produces benign windows and preparation prints a warning. The keyword policy
+should be checked against actual multi-step recordings before full training.
+Per-length results group by the requested window length; retained final windows
+can contain fewer calls.
 
 Each run writes `results/<model>/<setting>/<scenario>/` containing `config.yaml`,
 `vocab.json`, `model.pt`, `metrics.json` (overall and per-window-length test metrics,

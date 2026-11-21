@@ -16,12 +16,13 @@ from tqdm import tqdm  # noqa: E402
 from lidds_gen.config import load_config  # noqa: E402
 from lidds_gen.data import SCENARIOS, ScenarioWindowWriter, iter_scenario_recordings, windows_for_recording  # noqa: E402
 from lidds_gen.data.recording import list_scenario_zips  # noqa: E402
+from lidds_gen.data.store import preprocessing_settings  # noqa: E402
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default="configs/default.yaml")
-    ap.add_argument("--scenarios", nargs="*", default=list(SCENARIOS))
+    ap.add_argument("--scenarios", nargs="+", default=None)
     ap.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE", help="config overrides")
     args = ap.parse_args()
 
@@ -29,12 +30,12 @@ def main() -> None:
     d, paths = cfg["data"], cfg["paths"]
     limit = d.get("max_recordings_per_partition")
 
-    for scenario in args.scenarios:
+    for scenario in args.scenarios or d.get("scenarios", SCENARIOS):
         n = len(list_scenario_zips(paths["raw_root"], scenario, limit))
         if n == 0:
             print(f"[skip] {scenario}: no recordings under {paths['raw_root']}/{scenario}")
             continue
-        writer = ScenarioWindowWriter(scenario)
+        writer = ScenarioWindowWriter(scenario, preprocessing_settings(cfg))
         recs = iter_scenario_recordings(paths["raw_root"], scenario, d["recon_step_keywords"], limit)
         for rec in tqdm(recs, total=n, desc=scenario):
             if rec.exploit and rec.attack_start_ns is None:
