@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -29,26 +30,43 @@ def main() -> None:
     cfg = load_config(args.config, args.set)
     d, paths = cfg["data"], cfg["paths"]
     limit = d.get("max_recordings_per_partition")
-
-    for scenario in args.scenarios or d.get("scenarios", SCENARIOS):
-        n = len(list_scenario_zips(paths["raw_root"], scenario, limit))
-        if n == 0:
-            print(f"[skip] {scenario}: no recordings under {paths['raw_root']}/{scenario}")
-            continue
-        writer = ScenarioWindowWriter(scenario, preprocessing_settings(cfg))
+    scenarios = args.scenarios or d.get("scenarios", SCENARIOS)
+    listings = {scenario: list_scenario_zips(paths["raw_root"], scenario, limit) for scenario in scenarios}
+    for scenario, listing in listings.items():
+        missing = {"training", "validation", "test_normal", "test_attack"} - {part for _, part in listing}
+        if missing:
+            raise FileNotFoundError(f"{scenario}: missing recording partitions {sorted(missing)} "
+                                    f"under {paths['raw_root']}; check the dataset extraction and raw_root")
+    for scenario, listing in listings.items():
+        n = len(listing)
+        writer = ScenarioWindowWriter(scenario, preprocessing_settings(cfg), spill_dir=paths["processed_root"])
+        audit = []
         recs = iter_scenario_recordings(paths["raw_root"], scenario, d["recon_step_keywords"], limit)
         for rec in tqdm(recs, total=n, desc=scenario):
             if rec.exploit and rec.attack_start_ns is None:
                 print(f"[warn] {scenario}/{rec.name}: exploit recording without a non-recon attack time")
-            writer.add(rec, windows_for_recording(
+            windows = windows_for_recording(
                 rec,
                 seed=cfg["seed"],
                 mode=d["window_mode"],
                 lengths=d["window_lengths"],
                 fixed_length=d["fixed_length"],
                 keep_short_final=d["keep_short_final_window"],
-            ))
+            )
+            writer.add(rec, windows)
+            audit.append({
+                "name": rec.name, "partition": rec.partition, "exploit": rec.exploit,
+                "warmup_end_ns": rec.warmup_end_ns, "attack_start_ns": rec.attack_start_ns,
+                "attack_steps": rec.attack_steps, "retained_entry_events": len(rec.syscalls),
+                "threads": len({call.thread_id for call in rec.syscalls}),
+                "windows": len(windows), "malicious_windows": sum(w.label for w in windows),
+                "short_final_windows": sum(len(w.calls) < w.target_length for w in windows),
+            })
+            if rec.exploit and not any(w.label for w in windows):
+                print(f"[warn] {scenario}/{rec.name}: attack recording produced no malicious windows")
         print(f"[done] {scenario} -> {writer.save(paths['processed_root'])}")
+        audit_path = Path(paths["processed_root"]) / f"{scenario}.audit.json"
+        audit_path.write_text(json.dumps(audit, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

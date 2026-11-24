@@ -5,6 +5,7 @@ torch = pytest.importorskip("torch")
 from lidds_gen.data.experiment import EncodedSplit  # noqa: E402
 from lidds_gen.models import build_model  # noqa: E402
 from lidds_gen.training import WindowDataset, collate_windows, weighted_bce  # noqa: E402
+from lidds_gen.training.loop import resolve_device  # noqa: E402
 
 MODEL_CFG = {
     "embed_dim": 16, "dropout": 0.0,
@@ -34,3 +35,10 @@ def test_forward_shape_and_padding_invariance(name):
     padded = torch.nn.functional.pad(tokens, (0, 7), value=0)
     assert torch.allclose(model(padded, lengths), logits, atol=1e-5)
     assert weighted_bce(logits, y, 1.0, 2.0).ndim == 0
+
+
+def test_explicit_cuda_request_cannot_silently_use_cpu(monkeypatch):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    assert resolve_device("auto").type == "cpu"
+    with pytest.raises(RuntimeError, match="CUDA was requested but is unavailable"):
+        resolve_device("cuda")

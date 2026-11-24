@@ -5,7 +5,7 @@ Trace timestamps are integer nanoseconds; metadata absolute times are seconds.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
 from typing import Iterator, Sequence
@@ -29,6 +29,7 @@ class Recording:
     warmup_end_ns: int | None
     attack_start_ns: int | None
     syscalls: list[Syscall]
+    attack_steps: list[dict] = field(default_factory=list)
 
 
 PARTITIONS = {
@@ -39,6 +40,21 @@ PARTITIONS = {
 
 def _absolute_ns(event: dict) -> int:
     return int(Decimal(str(event["absolute"])) * 10**9)
+
+
+def _split_spaced_process_name(line: str) -> list[str]:
+    """Re-split a line whose process name contains spaces (e.g. ``puma 002``).
+
+    Columns are: timestamp, uid, pid, process name, thread id, syscall, direction,
+    args. Find the first direction marker whose thread-id column (two before it) is
+    an integer, then join the name tokens. Returns the unchanged split if none fits.
+    """
+    tokens = line.split()
+    for i in range(7, len(tokens)):
+        if tokens[i] in (">", "<") and tokens[i - 2].isdigit():
+            rest = line.split(maxsplit=i + 1)[i + 1:]
+            return [*tokens[:3], " ".join(tokens[3:i - 2]), *tokens[i - 2:i + 1], *rest]
+    return tokens
 
 
 def load_recording(
@@ -65,10 +81,10 @@ def load_recording(
         if exploit and not steps:
             raise ValueError(f"{path}: exploit recording has no attack timing")
         keywords = tuple(k.lower() for k in recon_keywords)
-        attack_times = [
-            _absolute_ns(step) for step in steps
-            if not any(k in step.get("name", "").lower() for k in keywords)
-        ] if exploit else []
+        step_audit = [{"name": step.get("name", ""), "timestamp_ns": _absolute_ns(step),
+                       "reconnaissance": any(k in step.get("name", "").lower() for k in keywords)}
+                      for step in steps] if exploit else []
+        attack_times = [step["timestamp_ns"] for step in step_audit if not step["reconnaissance"]]
         attack = min(attack_times) if attack_times else None
         calls = []
         with archive.open(member(".sc")) as stream:
@@ -77,6 +93,8 @@ def load_recording(
                     continue
                 fields = raw.decode("utf-8").split(maxsplit=7)
                 try:
+                    if len(fields) >= 7 and fields[6] not in (">", "<"):
+                        fields = _split_spaced_process_name(raw.decode("utf-8"))
                     if len(fields) < 7 or fields[6] not in (">", "<"):
                         raise ValueError("invalid syscall columns")
                     if fields[6] == "<":
@@ -86,7 +104,7 @@ def load_recording(
                     raise ValueError(f"{path}:{lineno}: invalid syscall entry") from exc
                 if timestamp >= warmup:
                     calls.append(Syscall(timestamp, thread, fields[5]))
-    return Recording(path.stem, scenario, partition, exploit, warmup, attack, calls)
+    return Recording(path.stem, scenario, partition, exploit, warmup, attack, calls, step_audit)
 
 
 def list_scenario_zips(

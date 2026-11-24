@@ -67,6 +67,13 @@ def test_assembly_has_no_held_out_or_vocabulary_leakage(pipeline_config):
     assert any(UNK_ID in seq for seq in splits["test"].sequences)
     assert summary["splits"]["train"]["unknown_token_rate"] == 0
     assert summary["splits"]["test"]["unknown_token_rate"] > 0
+    test_counts = summary["splits"]["test"]
+    assert test_counts["by_length"]["2"]["short_final_windows"] == 6
+    assert test_counts["by_length"]["2"]["malicious_windows"] == 6
+    assert test_counts["malicious_window_rate"] == 0.5
+    manifest = summary["recording_manifest"]
+    membership = [set(map(tuple, manifest[s])) for s in ("train", "val", "test")]
+    assert not (membership[0] & membership[1] or membership[0] & membership[2] or membership[1] & membership[2])
 
     # Marker calls from validation/test must not enter the learned vocabulary.
     infos = []
@@ -149,19 +156,164 @@ def test_prepare_and_train_cli_for_both_models_and_settings(pipeline_config, tmp
     assert prepared.returncode == 0, prepared.stdout + prepared.stderr
     result = subprocess.run([
         sys.executable, str(ROOT / "scripts/run_all.py"), "--config", str(path),
-        "--scenarios", "A", "--set", "experiment.seen_scope=single",
+        "--scenarios", "A", "--include-seen-control",
     ], capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
     for model in ("lstm", "transformer"):
-        for setting in ("seen", "held_out"):
+        for setting in ("seen", "seen_all", "held_out"):
             out = Path(cfg["paths"]["results_root"]) / model / setting / "A"
             metrics = json.loads((out / "metrics.json").read_text())
             assert len(metrics["history"]) == 1
             assert np.isfinite(metrics["history"][0]["train_loss"])
+            assert metrics["history"][0]["epoch_seconds"] > 0
+            assert metrics["runtime"]["device"] == "cpu"
+            assert metrics["runtime"]["training_seconds"] > 0
             assert metrics["test"]["n"] == 12
             assert 0 <= metrics["test"]["threshold"] <= 1
             assert set(metrics["test_by_length"]) == {"2"}
             assert (out / "model.pt").is_file()
             assert (out / "vocab.json").is_file()
+            assert (out / "dataset_summary.csv").is_file()
             with np.load(out / "test_predictions.npz") as predictions:
                 assert len(predictions["prob"]) == 12
+    # Resuming must skip all three conditions, but reject changed hyperparameters.
+    resumed = subprocess.run([
+        sys.executable, str(ROOT / "scripts/run_all.py"), "--config", str(path),
+        "--scenarios", "A", "--include-seen-control",
+    ], capture_output=True, text=True)
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    assert resumed.stdout.count("[skip]") == 6
+    changed = subprocess.run([
+        sys.executable, str(ROOT / "scripts/run_all.py"), "--config", str(path),
+        "--scenarios", "A", "--set", "training.lr=0.02",
+    ], capture_output=True, text=True)
+    assert changed.returncode != 0
+    assert "different config" in changed.stderr
+    aggregated = subprocess.run([
+        sys.executable, str(ROOT / "scripts/summarize_results.py"),
+        "--results-root", cfg["paths"]["results_root"],
+    ], capture_output=True, text=True)
+    assert aggregated.returncode == 0, aggregated.stdout + aggregated.stderr
+    import csv
+    summary_path = Path(cfg["paths"]["results_root"]) / "summary/comparison.csv"
+    with summary_path.open(newline="") as stream:
+        comparisons = list(csv.DictReader(stream))
+    assert len(comparisons) == 8  # 2 models x 2 seen controls x (overall + length 2).
+    assert {row["seen_condition"] for row in comparisons} == {"seen", "seen_all"}
+    # Identical window counts alone must not allow different recording sets to be paired.
+    metrics_path = Path(cfg["paths"]["results_root"]) / "lstm/seen/A/metrics.json"
+    bad_metrics = json.loads(metrics_path.read_text())
+    bad_metrics["data"]["recording_manifest"]["test"][0][2] = "different-recording"
+    metrics_path.write_text(json.dumps(bad_metrics))
+    rejected = subprocess.run([
+        sys.executable, str(ROOT / "scripts/summarize_results.py"),
+        "--results-root", cfg["paths"]["results_root"],
+    ], capture_output=True, text=True)
+    assert rejected.returncode != 0
+    assert "different test data" in rejected.stderr
+
+
+def test_dataset_summary_cli_without_training(pipeline_config, tmp_path):
+    import csv
+    import yaml
+
+    path = tmp_path / "summary_config.yaml"
+    path.write_text(yaml.safe_dump(pipeline_config))
+    result = subprocess.run([
+        sys.executable, str(ROOT / "scripts/summarize_data.py"), "--config", str(path),
+    ], capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    out = Path(pipeline_config["paths"]["results_root"]) / "data_summary" / "held_out" / "A"
+    summary = json.loads((out / "dataset_summary.json").read_text())
+    assert summary["vocab_size"] > 2
+    assert summary["splits"]["train"]["unknown_token_rate"] == 0
+    with (out / "dataset_summary.csv").open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == 6
+    assert {row["target_length"] for row in rows} == {"all", "2"}
+
+
+def test_window_caps_are_per_scenario_deterministic_and_keep_target_test_fixed(pipeline_config):
+    uncapped = copy.deepcopy(pipeline_config)
+    uncapped["data"]["max_windows_per_split"] = None
+    _, full, full_summary = build_experiment(uncapped)
+
+    capped = copy.deepcopy(pipeline_config)
+    capped["data"]["max_windows_per_split"] = {"train": 7, "val": 3, "test": 5}
+    _, a, summary = build_experiment(capped)
+    _, b, _ = build_experiment(copy.deepcopy(capped))
+    for split, cap in (("train", 7), ("val", 3), ("test", 5)):
+        per_scenario = {s: a[split].scenarios.count(s) for s in set(a[split].scenarios)}
+        available = summary["splits"][split]["windows_available"]
+        assert all(per_scenario[s] == min(cap, available[s]) for s in per_scenario)
+        assert sum(available.values()) == len(full[split])
+        assert [x.tolist() for x in a[split].sequences] == [x.tolist() for x in b[split].sequences]
+
+    seen = copy.deepcopy(capped)
+    seen["experiment"].update(setting="seen", seen_scope="single")
+    _, seen_splits, _ = build_experiment(seen)
+    # Same target test windows in both settings, so gaps compare like with like.
+    assert a["test"].labels == seen_splits["test"].labels
+    assert a["test"].target_lengths == seen_splits["test"].target_lengths
+    assert len(a["test"]) == 5
+
+
+def test_invalid_window_cap_is_rejected(pipeline_config):
+    pipeline_config["data"]["max_windows_per_split"] = {"training": 10}
+    with pytest.raises(ValueError, match="max_windows_per_split"):
+        build_experiment(pipeline_config)
+
+
+def test_interrupted_training_resumes_from_epoch_checkpoint(pipeline_config, tmp_path):
+    import torch
+    from lidds_gen.models import build_model
+    from lidds_gen.training import train_model
+
+    cfg = copy.deepcopy(pipeline_config)
+    cfg["training"].update(epochs=3, early_stopping_patience=10)
+    _, splits, _ = build_experiment(cfg)
+    vocab, _, _ = build_experiment(cfg)
+
+    def fresh():
+        torch.manual_seed(0)
+        return build_model("lstm", len(vocab), cfg["model"], cfg["data"]["max_length"])
+
+    _, full = train_model(fresh(), splits["train"], splits["val"], cfg)
+
+    class Interrupt(Exception):
+        pass
+
+    def stop_after_first_epoch(status):
+        if status.get("phase") == "epoch_done" and status["epoch"] == 0:
+            raise Interrupt
+
+    ckpt = tmp_path / "checkpoint.pt"
+    with pytest.raises(Interrupt):
+        train_model(fresh(), splits["train"], splits["val"], cfg, progress=stop_after_first_epoch,
+                    checkpoint=ckpt, checkpoint_key="k")
+    assert ckpt.exists()
+    _, resumed = train_model(fresh(), splits["train"], splits["val"], cfg, checkpoint=ckpt, checkpoint_key="k")
+    assert len(resumed) == 3
+    for a, b in zip(full, resumed):  # same trajectory as an uninterrupted run
+        assert a["train_loss"] == pytest.approx(b["train_loss"], rel=1e-5)
+        assert a["val_loss"] == pytest.approx(b["val_loss"], rel=1e-5)
+    # A checkpoint from a different configuration is ignored, not resumed.
+    _, other = train_model(fresh(), splits["train"], splits["val"], cfg, checkpoint=ckpt, checkpoint_key="other")
+    assert other[0]["train_loss"] == pytest.approx(full[0]["train_loss"], rel=1e-5)
+
+
+def test_run_all_records_failed_run_and_continues(pipeline_config, tmp_path):
+    import yaml
+    cfg = pipeline_config
+    path = tmp_path / "config.yaml"
+    path.write_text(yaml.safe_dump(cfg))
+    result = subprocess.run([
+        sys.executable, str(ROOT / "scripts/run_all.py"), "--config", str(path),
+        "--models", "lstm", "--settings", "seen", "--scenarios", "MISSING", "A",
+    ], capture_output=True, text=True)
+    assert result.returncode == 1, result.stdout + result.stderr
+    failed = json.loads((Path(cfg["paths"]["results_root"]) / "failed_runs.json").read_text())
+    assert [f["scenario"] for f in failed] == ["MISSING"]
+    # The grid continued past the failure.
+    assert (Path(cfg["paths"]["results_root"]) / "lstm" / "seen" / "A" / "metrics.json").exists()
+    assert not (Path(cfg["paths"]["results_root"]) / "_pending_config.yaml").exists()

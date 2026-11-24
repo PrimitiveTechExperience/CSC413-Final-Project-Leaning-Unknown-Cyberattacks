@@ -32,3 +32,18 @@ def dump_config(cfg: dict[str, Any], path: str | Path) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         yaml.safe_dump(copy.deepcopy(cfg), f, sort_keys=False)
+
+
+def experiment_condition(cfg: dict[str, Any]) -> str:
+    """Keep the proposal baseline and the all-scenario seen control separate."""
+    exp = cfg["experiment"]
+    setting = exp["setting"]
+    scope = exp.get("seen_scope", "single")
+    if setting not in ("seen", "held_out") or scope not in ("single", "all"):
+        raise ValueError("Invalid experiment setting or seen_scope")
+    return "seen_all" if setting == "seen" and scope == "all" else setting
+
+
+def experiment_run_dir(cfg: dict[str, Any]) -> Path:
+    exp = cfg["experiment"]
+    return Path(cfg["paths"]["results_root"]) / exp["model"] / experiment_condition(cfg) / exp["scenario"]

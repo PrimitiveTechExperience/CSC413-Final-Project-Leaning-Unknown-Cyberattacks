@@ -93,7 +93,7 @@ def test_held_out_excludes_target_attacks_only():
     assert all(r.scenario == "B" for r in sel["val"])
     assert all(r.scenario == "A" and r.split == "test" for r in sel["test"])
 
-    seen = select_setting(recs, "seen", "A")
+    seen = select_setting(recs, "seen", "A", seen_scope="all")
     assert sel["test"] == seen["test"]
     assert any(r.scenario == "A" and r.exploit for r in seen["train"])
     single = select_setting(recs, "seen", "A", seen_scope="single")
@@ -111,3 +111,36 @@ def test_store_roundtrip(tmp_path, attack_zip):
     assert [sw.window_calls(i) for i in range(len(sw))] == [x.calls for x in wins]
     assert sw.labels.tolist() == [x.label for x in wins]
     assert sw.recordings[0].exploit
+
+
+def test_store_spills_to_disk_with_identical_output(tmp_path, attack_zip, monkeypatch):
+    rec = load_recording(attack_zip, "S", "test_attack", recon_keywords=["scan"])
+    wins = windows_for_recording(rec, seed=0, mode="fixed", fixed_length=2)
+    plain = ScenarioWindowWriter("S")
+    plain.add(rec, wins)
+    plain.save(tmp_path / "plain")
+    monkeypatch.setattr(ScenarioWindowWriter, "SPILL_CALLS", 3)
+    spill_dir = tmp_path / "spill"
+    spilled = ScenarioWindowWriter("S", spill_dir=spill_dir)
+    spilled.add(rec, wins)
+    assert spilled._spilled > 0
+    spilled.save(tmp_path / "spilled")
+    assert not list(spill_dir.iterdir())  # temporary call file removed
+    a = load_scenario_windows(tmp_path / "plain", "S")
+    b = load_scenario_windows(tmp_path / "spilled", "S")
+    assert a.call_ids.dtype == b.call_ids.dtype
+    assert a.call_ids.tolist() == b.call_ids.tolist()
+    assert a.offsets.tolist() == b.offsets.tolist()
+    assert a.labels.tolist() == b.labels.tolist()
+    assert a.tokens == b.tokens
+
+
+def test_process_name_with_spaces_is_parsed():
+    from lidds_gen.data.recording import _split_spaced_process_name
+    line = "1631243451364992893 0 17991 puma 002 18549 clone < res=0 exe=puma 3.12.0 x > y"
+    assert _split_spaced_process_name(line) == [
+        "1631243451364992893", "0", "17991", "puma 002", "18549", "clone", "<",
+        "res=0 exe=puma 3.12.0 x > y"]
+    entry = "1631243451365037832 0 17991 my proc 1 18549 set_robust_list > "
+    fields = _split_spaced_process_name(entry)
+    assert fields[3:7] == ["my proc 1", "18549", "set_robust_list", ">"]

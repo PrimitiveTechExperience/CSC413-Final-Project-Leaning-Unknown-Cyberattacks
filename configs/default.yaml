@@ -20,6 +20,11 @@ data:
   # are treated as reconnaissance and therefore labelled benign (Sec. 3.4).
   recon_step_keywords: [recon, scan, nmap]
   max_recordings_per_partition: null   # set an int for quick debugging runs
+  # Per-scenario cap on windows in each experiment split: a uniform random sample
+  # (fixed seed) drawn after the recording-level split, so validation and test keep
+  # their natural class ratio and the target's test windows are identical across
+  # settings. Set a split to null to keep all of its windows.
+  max_windows_per_split: {train: 100000, val: 50000, test: 50000}
 
 experiment:
   # seen     : attacks of the target scenario are in training.
@@ -27,7 +32,7 @@ experiment:
   setting: held_out
   # Training scope for the seen setting: "all" = all 15 scenarios (same pool as
   # held_out plus the target's attacks), "single" = target scenario only.
-  seen_scope: all
+  seen_scope: single
   scenario: CVE-2014-0160
   model: lstm                          # lstm | transformer
 

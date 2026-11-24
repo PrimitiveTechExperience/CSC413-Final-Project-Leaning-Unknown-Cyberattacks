@@ -59,7 +59,7 @@ def resplit_recordings(
 
 def select_setting(
     recordings: Sequence[RecordingInfo], setting: str, scenario: str,
-    seen_scope: str = "all",
+    seen_scope: str = "single",
 ) -> dict[str, list[RecordingInfo]]:
     if setting not in ("seen", "held_out") or seen_scope not in ("all", "single"):
         raise ValueError("Invalid experiment setting or seen_scope")
