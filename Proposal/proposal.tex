@@ -155,7 +155,7 @@ Every system call line records a timestamp, user ID, process ID, name, thread ID
 \label{data:splits}
 LID-DS-2021's official partitions place all attack recordings in the test set. In our case, we re-split its test recordings at the recording level, with a $70/15/15$ split, using a stratified, fixed seed. Afterwards, we merge them with the official benign training and validation sets. We introduce two settings:
 \begin{itemize}
-    \item In the \emph{seen-attack} setting, a model is trained and tested on separate recordings from a single scenario. We additionally run an all-scenario seen control, which includes the target's attack recordings in training while keeping the target test recordings fixed.
+    \item In the \emph{seen-attack} setting, a model is trained and tested on separate recordings from a single scenario. We additionally run an all-scenario seen control, which includes the target's attack recordings in training while keeping the target test recordings fixed. Its training and validation data are the same for every target, so we train it once per model and evaluate it on each target's test set.
     \item In the \emph{held-out attack} setting, a model is trained on 14 of the 15 scenarios, and the benign recordings of the held-out scenario ($a$). We choose the decision threshold $\tau$ on the 14 scenarios' validation sets, and tested on $a$.
 \end{itemize}
 With $a$'s application being familiar to the model, the held-out setting evaluates transfer to an unfamiliar attack in a familiar application. The single-scenario baseline and held-out setting also differ in training diversity, so their gap alone does not isolate attack memorization. The all-scenario seen control helps assess the effect of access to the target's attack recordings, although training size and validation composition also differ. No test or held-out attack data is used for model selection nor calibration~\citep{arp2022dos}.
@@ -312,10 +312,16 @@ where $w_0$ and $w_1$ are the weights for the benign
 and malicious classes, calculated using only the
 training data.
 
+We train with Adam (learning rate $10^{-3}$, batch size
+256) for at most 20 epochs, and stop early once the
+validation loss has not improved for three epochs,
+keeping the weights from the epoch with the lowest
+validation loss.
+
 A window is predicted to be malicious when its probability
-is greater than a threshold $\tau$. We select this
-threshold using the allowed validation data before
-evaluating the models on the test set.
+is greater than a threshold $\tau$. We select $\tau$ as the
+value that maximizes F1 on the allowed validation data,
+before evaluating the models on the test set.
 
 Both models follow the same training procedure and
 threshold-selection method to keep the comparison
