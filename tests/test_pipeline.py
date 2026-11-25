@@ -317,3 +317,52 @@ def test_run_all_records_failed_run_and_continues(pipeline_config, tmp_path):
     # The grid continued past the failure.
     assert (Path(cfg["paths"]["results_root"]) / "lstm" / "seen" / "A" / "metrics.json").exists()
     assert not (Path(cfg["paths"]["results_root"]) / "_pending_config.yaml").exists()
+
+
+def test_progress_write_survives_locked_target(tmp_path, monkeypatch):
+    # On Windows the dashboard reading progress.json blocks the replace; that must not crash training.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import run_experiment
+
+    target = tmp_path / "progress.json"
+
+    def locked(self, other):
+        raise PermissionError(5, "Access is denied")
+
+    monkeypatch.setattr(Path, "replace", locked)
+    monkeypatch.setattr(run_experiment.time, "sleep", lambda s: None)
+    assert run_experiment.write_progress_file(target, {"epoch": 1}) is False
+    monkeypatch.undo()
+    assert run_experiment.write_progress_file(target, {"epoch": 2}) is True
+    assert json.loads(target.read_text(encoding="utf-8"))["epoch"] == 2
+
+
+def test_all_scenario_seen_control_reuses_trained_model_with_same_results(pipeline_config, tmp_path):
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import run_experiment
+
+    def control(scenario, results):
+        cfg = copy.deepcopy(pipeline_config)
+        cfg["paths"]["results_root"] = str(tmp_path / results)
+        cfg["experiment"].update(model="lstm", setting="seen", seen_scope="all", scenario=scenario)
+        return run_experiment.run(cfg)
+
+    first = control("A", "shared")
+    assert first["runtime"]["reused_model_from"] is None
+    reused = control("B", "shared")
+    assert reused["runtime"]["reused_model_from"].endswith("A")
+    assert not (tmp_path / "shared/lstm/seen_all/B/model.pt").exists()
+    trained = control("B", "separate")  # B trained from scratch instead
+    assert trained["runtime"]["reused_model_from"] is None
+    def losses(history):  # epoch_seconds is wall-clock and naturally differs
+        return [(h["train_loss"], h["val_loss"]) for h in history]
+
+    assert losses(reused["history"]) == losses(trained["history"])
+    for key in ("auroc", "f1", "fpr", "threshold"):
+        if key in trained["test"]:
+            assert reused["test"][key] == pytest.approx(trained["test"][key], abs=1e-6)
+    # Single-scenario seen and held-out runs never reuse.
+    cfg = copy.deepcopy(pipeline_config)
+    cfg["paths"]["results_root"] = str(tmp_path / "shared")
+    cfg["experiment"].update(model="lstm", setting="held_out", scenario="B")
+    assert run_experiment.run(cfg)["runtime"]["reused_model_from"] is None

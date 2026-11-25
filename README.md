@@ -96,6 +96,15 @@ both seen scopes alongside the held-out setting (90 runs for the full grid).
 Held-out training keeps the target's benign training recordings, excludes all
 of its attack recordings, and uses only other scenarios for validation.
 
+The all-scenario control trains and validates on the same pooled data for every
+target; only the test split depends on the target. Its model, early-stopping
+epoch, and threshold are therefore the same for every target, so the first
+completed `seen_all` run's model is reused and only evaluated for the remaining
+targets (about 2 minutes instead of about 100). A run reuses a model only when
+its config differs from that run's in the target alone and its vocabulary is
+identical; `metrics.json` then records `runtime.reused_model_from`, the training
+history is copied from that run, and no separate `model.pt` is written.
+
 ### Window caps
 
 The full dataset has about 35.9M windows (4.3B calls, 15.7 GiB as cached arrays),

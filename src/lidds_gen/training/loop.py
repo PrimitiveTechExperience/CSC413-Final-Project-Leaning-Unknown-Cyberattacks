@@ -126,7 +126,15 @@ def train_model(
                     "history": history, "stopped": stop, "torch_rng": torch.get_rng_state(),
                     "cuda_rng": torch.cuda.get_rng_state(device) if device.type == "cuda" else None},
                    partial)
-        partial.replace(checkpoint)
+        # Windows refuses the replace while another process (antivirus, indexer) has the
+        # file open. Retry, then keep the previous checkpoint rather than stop training.
+        for attempt in range(10):
+            try:
+                partial.replace(checkpoint)
+                return
+            except OSError:
+                time.sleep(0.2 * (attempt + 1))
+        print(f"[warn] could not update {checkpoint}; keeping the previous checkpoint", flush=True)
 
     for epoch in range(start_epoch, tcfg["epochs"]):
         if stopped:

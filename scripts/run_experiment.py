@@ -20,6 +20,7 @@ import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
 from lidds_gen.config import dump_config, experiment_run_dir, load_config  # noqa: E402
+from lidds_gen.data import SCENARIOS  # noqa: E402
 from lidds_gen.data.experiment import build_experiment  # noqa: E402
 from lidds_gen.data.report import write_dataset_summary  # noqa: E402
 from lidds_gen.evaluation import compute_metrics, metrics_by_length, select_threshold  # noqa: E402
@@ -32,6 +33,50 @@ def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+
+
+def write_progress_file(path: Path, payload: dict) -> bool:
+    """Best-effort status write. On Windows the replace fails while a reader has the
+    file open, so retry briefly and then skip this update; it must never stop training."""
+    partial = path.with_suffix(".json.tmp")
+    for attempt in range(5):
+        try:
+            partial.write_text(json.dumps(payload), encoding="utf-8")
+            partial.replace(path)
+            return True
+        except OSError:
+            time.sleep(0.05 * (attempt + 1))
+    return False
+
+
+def _without_target(cfg: dict[str, Any]) -> dict[str, Any]:
+    out = json.loads(json.dumps(cfg, default=str))
+    out["experiment"].pop("scenario", None)
+    return out
+
+
+def find_shared_model(cfg: dict[str, Any], run_dir: Path) -> Path | None:
+    """The all-scenario seen control trains and validates on the same pooled data for
+    every target (only the test split is target-specific), so it is the same model each
+    time. Return a completed run of that control whose config differs only in the target
+    and whose vocabulary is identical, so its trained model can be evaluated here."""
+    exp = cfg["experiment"]
+    if exp["setting"] != "seen" or exp.get("seen_scope", "single") != "all":
+        return None
+    import yaml
+    want = _without_target(cfg)
+    vocab_bytes = (run_dir / "vocab.json").read_bytes()
+    for scenario in cfg["data"].get("scenarios", SCENARIOS):
+        donor = run_dir.parent / scenario
+        if donor == run_dir or not all((donor / f).exists() for f in ("metrics.json", "model.pt", "vocab.json")):
+            continue
+        metrics = json.loads((donor / "metrics.json").read_text(encoding="utf-8"))
+        if metrics.get("runtime", {}).get("reused_model_from"):
+            continue  # only reuse a model that was actually trained there
+        donor_cfg = yaml.safe_load((donor / "config.yaml").read_text(encoding="utf-8"))
+        if _without_target(donor_cfg) == want and (donor / "vocab.json").read_bytes() == vocab_bytes:
+            return donor
+    return None
 
 
 def run(cfg: dict[str, Any]) -> dict[str, Any]:
@@ -66,20 +111,29 @@ def run(cfg: dict[str, Any]) -> dict[str, Any]:
 
     def write_progress(status: dict) -> None:
         # Live status for monitoring only; metrics.json remains the completion marker.
-        partial = progress_path.with_suffix(".json.tmp")
-        partial.write_text(json.dumps({**status, "train_windows": len(splits["train"]),
-                                       "val_windows": len(splits["val"]), "time": time.time()}),
-                           encoding="utf-8")
-        partial.replace(progress_path)
+        write_progress_file(progress_path, {**status, "train_windows": len(splits["train"]),
+                                            "val_windows": len(splits["val"]), "time": time.time()})
 
-    # Resume only from a checkpoint written by this exact configuration.
-    checkpoint_key = hashlib.sha256(json.dumps(cfg, sort_keys=True, default=str).encode()).hexdigest()
-    model, history = train_model(model, splits["train"], splits["val"], cfg, progress=write_progress,
-                                 checkpoint=run_dir / "checkpoint.pt", checkpoint_key=checkpoint_key)
+    try:
+        donor = find_shared_model(cfg, run_dir)
+    except Exception as exc:  # noqa: BLE001 - a lookup problem must fall back to training, not fail
+        print(f"[warn] shared-model lookup failed ({exc!r}); training instead", flush=True)
+        donor = None
+    if donor is not None:
+        print(f"[reuse] all-scenario seen model trained in {donor}", flush=True)
+        model.load_state_dict(torch.load(donor / "model.pt", map_location="cpu", weights_only=True))
+        model.to(device)
+        history = json.loads((donor / "metrics.json").read_text(encoding="utf-8"))["history"]
+    else:
+        # Resume only from a checkpoint written by this exact configuration.
+        checkpoint_key = hashlib.sha256(json.dumps(cfg, sort_keys=True, default=str).encode()).hexdigest()
+        model, history = train_model(model, splits["train"], splits["val"], cfg, progress=write_progress,
+                                     checkpoint=run_dir / "checkpoint.pt", checkpoint_key=checkpoint_key)
     if device.type == "cuda":
         torch.cuda.synchronize(device)
     training_seconds = time.perf_counter() - train_start
-    torch.save(model.state_dict(), run_dir / "model.pt")
+    if donor is None:
+        torch.save(model.state_dict(), run_dir / "model.pt")
 
     evaluation_start = time.perf_counter()
     val_prob = predict(model, splits["val"], cfg, device)
@@ -97,6 +151,8 @@ def run(cfg: dict[str, Any]) -> dict[str, Any]:
         "elapsed_seconds": time.perf_counter() - run_start,
         "peak_cuda_allocated_bytes": torch.cuda.max_memory_allocated(device) if device.type == "cuda" else None,
         "peak_cuda_reserved_bytes": torch.cuda.max_memory_reserved(device) if device.type == "cuda" else None,
+        # Set when training was skipped; history and model.pt are the donor run's.
+        "reused_model_from": str(donor) if donor is not None else None,
     }
     results = {
         "experiment": exp,
