@@ -249,4 +249,4 @@ saving, so interrupted runs are not mistaken for completed experiments.
 
 ## Authors
 
-Ryan H. Lin, Sebastian Sperneac, Arman Hovhannisyan (University of Toronto Mississauga)
+Ryan H. Lin, Sebastian Sperneac, Arman Hovhannisyan, Evan Tao (University of Toronto Mississauga)
