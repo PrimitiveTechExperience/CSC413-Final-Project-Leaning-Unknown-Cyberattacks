@@ -1,0 +1,161 @@
+{
+  "scenario": "ZipSlip",
+  "model_used_to_pick": "transformer",
+  "test_windows": 50000,
+  "malicious_windows": 1940,
+  "call_distribution_tv_distance": 0.0371,
+  "over_represented_in_malicious": [
+    {
+      "call": "gettid",
+      "malicious_share": 0.2059,
+      "benign_share": 0.191
+    },
+    {
+      "call": "futex",
+      "malicious_share": 0.2199,
+      "benign_share": 0.212
+    },
+    {
+      "call": "sysinfo",
+      "malicious_share": 0.0362,
+      "benign_share": 0.0327
+    },
+    {
+      "call": "recvfrom",
+      "malicious_share": 0.0033,
+      "benign_share": 0.0017
+    },
+    {
+      "call": "close",
+      "malicious_share": 0.017,
+      "benign_share": 0.0155
+    }
+  ],
+  "examples": [
+    {
+      "case": "highest-scoring attack window when held out (still below \u03c4: no held-out detections)",
+      "index": 49932,
+      "label": 1,
+      "target_length": 50,
+      "calls": 50,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.4885,
+        "LSTM Seen (all)": 0.3175,
+        "LSTM Held-out": 0.3301,
+        "Transformer Seen": 0.5042,
+        "Transformer Seen (all)": 0.2715,
+        "Transformer Held-out": 0.2611
+      },
+      "thresholds": {
+        "LSTM Seen": 0.5745,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.9206,
+        "Transformer Seen": 0.6398,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.899
+      },
+      "sequence": "futex\u00d750"
+    },
+    {
+      "case": "missed when held out but caught when seen (held-out false negative)",
+      "index": 45817,
+      "label": 1,
+      "target_length": 100,
+      "calls": 100,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.5174,
+        "LSTM Seen (all)": 0.9942,
+        "LSTM Held-out": 0.0044,
+        "Transformer Seen": 0.9857,
+        "Transformer Seen (all)": 0.9898,
+        "Transformer Held-out": 0.0462
+      },
+      "thresholds": {
+        "LSTM Seen": 0.5745,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.9206,
+        "Transformer Seen": 0.6398,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.899
+      },
+      "sequence": "close access open read fstat mmap mprotect mmap close open\u00d72 access open read fstat mmap mprotect mmap\u00d72 close mprotect\u00d72 munmap open\u00d73 fstat mmap close access open read fstat mmap mprotect \u2026"
+    },
+    {
+      "case": "missed in every condition (false negative, lowest seen (all) score)",
+      "index": 49080,
+      "label": 1,
+      "target_length": 200,
+      "calls": 200,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.5156,
+        "LSTM Seen (all)": 0.1187,
+        "LSTM Held-out": 0.0002,
+        "Transformer Seen": 0.4708,
+        "Transformer Seen (all)": 0.0075,
+        "Transformer Held-out": 0.0
+      },
+      "thresholds": {
+        "LSTM Seen": 0.5745,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.9206,
+        "Transformer Seen": 0.6398,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.899
+      },
+      "sequence": "futex\u00d770 sysinfo futex\u00d72 gettid\u00d77 futex sysinfo futex\u00d777 gettid\u00d78 mprotect\u00d77 futex\u00d72 mprotect\u00d75 futex\u00d72 sysinfo futex\u00d716"
+    },
+    {
+      "case": "highest-scoring benign window when held out (still below \u03c4: no false alarms)",
+      "index": 16581,
+      "label": 0,
+      "target_length": 50,
+      "calls": 29,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.7744,
+        "LSTM Seen (all)": 0.4441,
+        "LSTM Held-out": 0.1859,
+        "Transformer Seen": 0.7725,
+        "Transformer Seen (all)": 0.5107,
+        "Transformer Held-out": 0.7211
+      },
+      "thresholds": {
+        "LSTM Seen": 0.5745,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.9206,
+        "Transformer Seen": 0.6398,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.899
+      },
+      "sequence": "sendto wait4 pipe clone close read close wait4 shutdown close poll\u00d73 accept recvfrom stat open fstat ioctl lseek recvfrom close wait4 shutdown close poll\u00d74"
+    },
+    {
+      "case": "typical benign window (true negative)",
+      "index": 8518,
+      "label": 0,
+      "target_length": 50,
+      "calls": 50,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.5256,
+        "LSTM Seen (all)": 0.2208,
+        "LSTM Held-out": 0.0004,
+        "Transformer Seen": 0.532,
+        "Transformer Seen (all)": 0.2096,
+        "Transformer Held-out": 0.0001
+      },
+      "thresholds": {
+        "LSTM Seen": 0.5745,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.9206,
+        "Transformer Seen": 0.6398,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.899
+      },
+      "sequence": "gettid\u00d73 mprotect gettid\u00d79 mprotect gettid mprotect gettid\u00d73 mprotect gettid\u00d72 mprotect\u00d725 futex mprotect\u00d72"
+    }
+  ]
+}

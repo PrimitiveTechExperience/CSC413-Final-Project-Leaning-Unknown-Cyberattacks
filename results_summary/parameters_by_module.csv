@@ -1,0 +1,7 @@
+Model,Module,Parameters
+LSTM,embedding,"15,232"
+LSTM,lstm,"264,192"
+LSTM,head,129
+Transformer,embedding,"15,232"
+Transformer,encoder,"264,960"
+Transformer,head,129

@@ -1,0 +1,161 @@
+{
+  "scenario": "EPS_CWE-434",
+  "model_used_to_pick": "transformer",
+  "test_windows": 50000,
+  "malicious_windows": 1047,
+  "call_distribution_tv_distance": 0.0175,
+  "over_represented_in_malicious": [
+    {
+      "call": "read",
+      "malicious_share": 0.2272,
+      "benign_share": 0.2199
+    },
+    {
+      "call": "brk",
+      "malicious_share": 0.1065,
+      "benign_share": 0.1025
+    },
+    {
+      "call": "rt_sigaction",
+      "malicious_share": 0.0082,
+      "benign_share": 0.0071
+    },
+    {
+      "call": "write",
+      "malicious_share": 0.0136,
+      "benign_share": 0.0129
+    },
+    {
+      "call": "munmap",
+      "malicious_share": 0.0056,
+      "benign_share": 0.0052
+    }
+  ],
+  "examples": [
+    {
+      "case": "detected without seeing this attack (held-out true positive, median score)",
+      "index": 49288,
+      "label": 1,
+      "target_length": 200,
+      "calls": 200,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.5591,
+        "LSTM Seen (all)": 0.9995,
+        "LSTM Held-out": 0.9995,
+        "Transformer Seen": 0.7306,
+        "Transformer Seen (all)": 0.987,
+        "Transformer Held-out": 0.9845
+      },
+      "thresholds": {
+        "LSTM Seen": 0.5523,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.904,
+        "Transformer Seen": 0.5765,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.9493
+      },
+      "sequence": "close access open read fstat mmap mprotect mmap close access open read fstat mmap\u00d72 mprotect mmap\u00d72 close access open read fstat mmap mprotect mmap\u00d72 close access open read fstat mmap \u2026"
+    },
+    {
+      "case": "missed when held out but caught when seen (held-out false negative)",
+      "index": 49577,
+      "label": 1,
+      "target_length": 200,
+      "calls": 200,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.9444,
+        "LSTM Seen (all)": 1.0,
+        "LSTM Held-out": 0.9995,
+        "Transformer Seen": 0.9195,
+        "Transformer Seen (all)": 0.9717,
+        "Transformer Held-out": 0.2253
+      },
+      "thresholds": {
+        "LSTM Seen": 0.5523,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.904,
+        "Transformer Seen": 0.5765,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.9493
+      },
+      "sequence": "mprotect munmap set_tid_address set_robust_list rt_sigaction\u00d72 rt_sigprocmask getrlimit brk\u00d72 clock_getres\u00d72 stat open fstat read\u00d73 close stat ioctl\u00d72 rt_sigaction\u00d75 stat open fstat mmap close futex statfs stat\u00d72 open write open fstat read\u00d74 \u2026"
+    },
+    {
+      "case": "missed in every condition (false negative, lowest seen (all) score)",
+      "index": 48501,
+      "label": 1,
+      "target_length": 100,
+      "calls": 22,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.5352,
+        "LSTM Seen (all)": 0.081,
+        "LSTM Held-out": 0.0003,
+        "Transformer Seen": 0.5336,
+        "Transformer Seen (all)": 0.0161,
+        "Transformer Held-out": 0.0002
+      },
+      "thresholds": {
+        "LSTM Seen": 0.5523,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.904,
+        "Transformer Seen": 0.5765,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.9493
+      },
+      "sequence": "brk\u00d74 munmap\u00d72 fstat write close munmap brk munmap close munmap\u00d75 brk close exit_group procexit"
+    },
+    {
+      "case": "false alarm when held out (benign, highest score)",
+      "index": 46325,
+      "label": 0,
+      "target_length": 200,
+      "calls": 16,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.5373,
+        "LSTM Seen (all)": 0.5631,
+        "LSTM Held-out": 0.4567,
+        "Transformer Seen": 0.5363,
+        "Transformer Seen (all)": 0.2327,
+        "Transformer Held-out": 0.9665
+      },
+      "thresholds": {
+        "LSTM Seen": 0.5523,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.904,
+        "Transformer Seen": 0.5765,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.9493
+      },
+      "sequence": "execve brk access\u00d72 open fstat mmap close access open read fstat mmap\u00d72 mprotect mmap"
+    },
+    {
+      "case": "typical benign window (true negative)",
+      "index": 48290,
+      "label": 0,
+      "target_length": 200,
+      "calls": 96,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.5341,
+        "LSTM Seen (all)": 0.1053,
+        "LSTM Held-out": 0.0001,
+        "Transformer Seen": 0.571,
+        "Transformer Seen (all)": 0.0931,
+        "Transformer Held-out": 0.0003
+      },
+      "thresholds": {
+        "LSTM Seen": 0.5523,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.904,
+        "Transformer Seen": 0.5765,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.9493
+      },
+      "sequence": "open\u00d73 close open\u00d73 close open close open read\u00d72 close stat umask open umask open write\u00d712 stat umask open umask write\u00d77 writev\u00d710 write close open\u00d714 rt_sigaction\u00d72 rt_sigprocmask clone wait4 rt_sigaction\u00d72 rt_sigprocmask \u2026"
+    }
+  ]
+}

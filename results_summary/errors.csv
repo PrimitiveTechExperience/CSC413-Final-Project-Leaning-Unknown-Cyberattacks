@@ -1,0 +1,7 @@
+Model,Condition,TP,FP,FN,TN,Pooled FPR,Pooled FNR,Scenarios with no detections
+LSTM,Seen,"50,286","54,187","21,542","460,111",0.105,0.300,0
+LSTM,Seen (all),"48,771","3,225","23,057","511,073",0.006,0.321,1
+LSTM,Held-out,"20,165",707,"51,663","513,591",0.001,0.719,8
+Transformer,Seen,"50,995","64,242","20,833","450,056",0.125,0.290,0
+Transformer,Seen (all),"47,947","3,649","23,881","510,649",0.007,0.332,2
+Transformer,Held-out,"20,198",867,"51,630","513,431",0.002,0.719,7

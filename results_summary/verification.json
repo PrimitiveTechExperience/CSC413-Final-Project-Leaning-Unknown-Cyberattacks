@@ -1,0 +1,100 @@
+{
+  "runs": 90,
+  "scenarios": {
+    "Bruteforce_CWE-307": {
+      "runs": 6,
+      "test_recordings": 136,
+      "test_windows": 9132,
+      "malicious_windows": 1370
+    },
+    "CVE-2012-2122": {
+      "runs": 6,
+      "test_recordings": 132,
+      "test_windows": 36188,
+      "malicious_windows": 26574
+    },
+    "CVE-2014-0160": {
+      "runs": 6,
+      "test_recordings": 132,
+      "test_windows": 2433,
+      "malicious_windows": 175
+    },
+    "CVE-2017-12635_6": {
+      "runs": 6,
+      "test_recordings": 131,
+      "test_windows": 50000,
+      "malicious_windows": 21944
+    },
+    "CVE-2017-7529": {
+      "runs": 6,
+      "test_recordings": 127,
+      "test_windows": 1462,
+      "malicious_windows": 328
+    },
+    "CVE-2018-3760": {
+      "runs": 6,
+      "test_recordings": 128,
+      "test_windows": 50000,
+      "malicious_windows": 1053
+    },
+    "CVE-2019-5418": {
+      "runs": 6,
+      "test_recordings": 132,
+      "test_windows": 50000,
+      "malicious_windows": 1512
+    },
+    "CVE-2020-13942": {
+      "runs": 6,
+      "test_recordings": 131,
+      "test_windows": 50000,
+      "malicious_windows": 1534
+    },
+    "CVE-2020-23839": {
+      "runs": 6,
+      "test_recordings": 132,
+      "test_windows": 36911,
+      "malicious_windows": 1267
+    },
+    "CVE-2020-9484": {
+      "runs": 6,
+      "test_recordings": 132,
+      "test_windows": 50000,
+      "malicious_windows": 2257
+    },
+    "CWE-89-SQL-injection": {
+      "runs": 6,
+      "test_recordings": 132,
+      "test_windows": 50000,
+      "malicious_windows": 6448
+    },
+    "EPS_CWE-434": {
+      "runs": 6,
+      "test_recordings": 132,
+      "test_windows": 50000,
+      "malicious_windows": 1047
+    },
+    "Juice-Shop": {
+      "runs": 6,
+      "test_recordings": 132,
+      "test_windows": 50000,
+      "malicious_windows": 2408
+    },
+    "PHP_CWE-434": {
+      "runs": 6,
+      "test_recordings": 132,
+      "test_windows": 50000,
+      "malicious_windows": 1971
+    },
+    "ZipSlip": {
+      "runs": 6,
+      "test_recordings": 132,
+      "test_windows": 50000,
+      "malicious_windows": 1940
+    }
+  },
+  "notes": [
+    "lstm: 3 distinct seen_all models: tau=0.9030, 17 epochs: Bruteforce_CWE-307, CVE-2017-12635_6, CVE-2020-13942, CVE-2020-23839, EPS_CWE-434, Juice-Shop, ZipSlip; tau=0.9092, 13 epochs: CVE-2012-2122, CVE-2014-0160; tau=0.9238, 13 epochs: CVE-2017-7529, CVE-2018-3760, CVE-2019-5418, CVE-2020-9484, CWE-89-SQL-injection, PHP_CWE-434"
+  ],
+  "errors": [],
+  "passed": true
+}

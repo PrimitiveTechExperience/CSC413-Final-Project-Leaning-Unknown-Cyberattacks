@@ -1,0 +1,91 @@
+Model,Condition,Scenario,Epochs,Best epoch,Best val loss,τ,Hours,Model reused from
+LSTM,Seen,Bruteforce_CWE-307,6,3,0.2626,0.7864,0.04,
+LSTM,Seen,CVE-2012-2122,10,7,0.2709,0.4145,0.10,
+LSTM,Seen,CVE-2014-0160,10,7,0.6029,0.7000,0.02,
+LSTM,Seen,CVE-2017-7529,11,8,0.1015,0.5619,0.01,
+LSTM,Seen,CVE-2018-3760,13,10,0.5416,0.9232,0.13,
+LSTM,Seen,CVE-2019-5418,15,12,0.7015,0.5497,0.14,
+LSTM,Seen,CVE-2020-9484,6,3,0.6156,0.5069,0.06,
+LSTM,Seen,CWE-89-SQL-injection,18,15,0.4520,0.7774,0.18,
+LSTM,Seen,PHP_CWE-434,4,1,0.7795,0.6569,0.04,
+LSTM,Seen,EPS_CWE-434,9,6,0.7578,0.5523,0.09,
+LSTM,Seen,ZipSlip,9,6,0.7661,0.5745,0.10,
+LSTM,Seen,CVE-2017-12635_6,5,2,0.1902,0.3957,0.05,
+LSTM,Seen,CVE-2020-13942,12,9,0.6539,0.6933,0.12,
+LSTM,Seen,CVE-2020-23839,14,11,0.3105,0.9603,0.56,
+LSTM,Seen,Juice-Shop,5,2,0.6771,0.4906,0.05,
+LSTM,Seen (all),Bruteforce_CWE-307,17,14,0.2999,0.9030,0.69,
+LSTM,Seen (all),CVE-2012-2122,13,10,0.3030,0.9092,1.63,
+LSTM,Seen (all),CVE-2014-0160,13,10,0.3030,0.9092,1.59,
+LSTM,Seen (all),CVE-2017-7529,13,10,0.3017,0.9238,1.73,
+LSTM,Seen (all),CVE-2018-3760,13,10,0.3017,0.9238,1.72,
+LSTM,Seen (all),CVE-2019-5418,13,10,0.3017,0.9238,1.62,
+LSTM,Seen (all),CVE-2020-9484,13,10,0.3017,0.9238,1.71,
+LSTM,Seen (all),CWE-89-SQL-injection,13,10,0.3017,0.9238,1.62,
+LSTM,Seen (all),PHP_CWE-434,13,10,0.3017,0.9238,1.62,
+LSTM,Seen (all),EPS_CWE-434,17,14,0.2999,0.9030,0.03,Bruteforce_CWE-307
+LSTM,Seen (all),ZipSlip,17,14,0.2999,0.9030,0.03,Bruteforce_CWE-307
+LSTM,Seen (all),CVE-2017-12635_6,17,14,0.2999,0.9030,0.03,Bruteforce_CWE-307
+LSTM,Seen (all),CVE-2020-13942,17,14,0.2999,0.9030,0.03,Bruteforce_CWE-307
+LSTM,Seen (all),CVE-2020-23839,17,14,0.2999,0.9030,0.03,Bruteforce_CWE-307
+LSTM,Seen (all),Juice-Shop,17,14,0.2999,0.9030,0.03,Bruteforce_CWE-307
+LSTM,Held-out,Bruteforce_CWE-307,20,17,0.3095,0.9275,2.53,
+LSTM,Held-out,CVE-2012-2122,15,12,0.4222,0.9250,1.87,
+LSTM,Held-out,CVE-2014-0160,18,15,0.3009,0.8858,2.01,
+LSTM,Held-out,CVE-2017-7529,18,15,0.3035,0.9228,1.98,
+LSTM,Held-out,CVE-2018-3760,17,14,0.3148,0.8984,1.90,
+LSTM,Held-out,CVE-2019-5418,11,8,0.3057,0.9182,1.23,
+LSTM,Held-out,CVE-2020-9484,16,13,0.3056,0.9307,1.81,
+LSTM,Held-out,CWE-89-SQL-injection,11,8,0.3088,0.9170,1.26,
+LSTM,Held-out,PHP_CWE-434,19,16,0.2994,0.9220,2.11,
+LSTM,Held-out,EPS_CWE-434,11,8,0.3106,0.9040,1.26,
+LSTM,Held-out,ZipSlip,13,10,0.3033,0.9206,1.54,
+LSTM,Held-out,CVE-2017-12635_6,17,14,0.3483,0.9104,2.16,
+LSTM,Held-out,CVE-2020-13942,9,6,0.3125,0.9210,1.14,
+LSTM,Held-out,CVE-2020-23839,13,10,0.3227,0.9181,1.57,
+LSTM,Held-out,Juice-Shop,13,10,0.3009,0.9116,1.51,
+Transformer,Seen,Bruteforce_CWE-307,10,7,0.2626,0.7767,0.10,
+Transformer,Seen,CVE-2012-2122,11,8,0.2610,0.3992,0.17,
+Transformer,Seen,CVE-2014-0160,20,18,0.5839,0.7906,0.04,
+Transformer,Seen,CVE-2017-7529,9,6,0.1052,0.6875,0.01,
+Transformer,Seen,CVE-2018-3760,4,1,0.5481,0.7704,0.07,
+Transformer,Seen,CVE-2019-5418,5,2,0.7109,0.5574,0.08,
+Transformer,Seen,CVE-2020-9484,6,3,0.6055,0.5113,0.09,
+Transformer,Seen,CWE-89-SQL-injection,17,14,0.4471,0.8168,0.26,
+Transformer,Seen,PHP_CWE-434,5,2,0.7839,0.8397,0.08,
+Transformer,Seen,EPS_CWE-434,10,7,0.7584,0.5765,0.15,
+Transformer,Seen,ZipSlip,13,10,0.7627,0.6398,0.20,
+Transformer,Seen,CVE-2017-12635_6,5,2,0.1909,0.2448,0.08,
+Transformer,Seen,CVE-2020-13942,6,3,0.6607,0.6723,0.10,
+Transformer,Seen,CVE-2020-23839,11,8,0.3612,0.9256,0.17,
+Transformer,Seen,Juice-Shop,4,1,0.6773,0.4869,0.07,
+Transformer,Seen (all),Bruteforce_CWE-307,11,8,0.3142,0.9332,2.20,
+Transformer,Seen (all),CVE-2012-2122,11,8,0.3142,0.9332,0.04,Bruteforce_CWE-307
+Transformer,Seen (all),CVE-2014-0160,11,8,0.3142,0.9332,0.04,Bruteforce_CWE-307
+Transformer,Seen (all),CVE-2017-7529,11,8,0.3142,0.9332,0.04,Bruteforce_CWE-307
+Transformer,Seen (all),CVE-2018-3760,11,8,0.3142,0.9332,0.04,Bruteforce_CWE-307
+Transformer,Seen (all),CVE-2019-5418,11,8,0.3142,0.9332,0.04,Bruteforce_CWE-307
+Transformer,Seen (all),CVE-2020-9484,11,8,0.3142,0.9332,0.04,Bruteforce_CWE-307
+Transformer,Seen (all),CWE-89-SQL-injection,11,8,0.3142,0.9332,0.04,Bruteforce_CWE-307
+Transformer,Seen (all),PHP_CWE-434,11,8,0.3142,0.9332,0.04,Bruteforce_CWE-307
+Transformer,Seen (all),EPS_CWE-434,11,8,0.3142,0.9332,0.04,Bruteforce_CWE-307
+Transformer,Seen (all),ZipSlip,11,8,0.3142,0.9332,0.04,Bruteforce_CWE-307
+Transformer,Seen (all),CVE-2017-12635_6,11,8,0.3142,0.9332,0.04,Bruteforce_CWE-307
+Transformer,Seen (all),CVE-2020-13942,11,8,0.3142,0.9332,0.04,Bruteforce_CWE-307
+Transformer,Seen (all),CVE-2020-23839,11,8,0.3142,0.9332,0.04,Bruteforce_CWE-307
+Transformer,Seen (all),Juice-Shop,11,8,0.3142,0.9332,0.04,Bruteforce_CWE-307
+Transformer,Held-out,Bruteforce_CWE-307,10,7,0.3225,0.9141,1.99,
+Transformer,Held-out,CVE-2012-2122,13,10,0.4333,0.9160,2.52,
+Transformer,Held-out,CVE-2014-0160,7,4,0.3165,0.9194,1.38,
+Transformer,Held-out,CVE-2017-7529,8,5,0.3164,0.9273,1.57,
+Transformer,Held-out,CVE-2018-3760,9,6,0.3309,0.9492,1.77,
+Transformer,Held-out,CVE-2019-5418,11,8,0.3155,0.9380,2.18,
+Transformer,Held-out,CVE-2020-9484,11,8,0.3171,0.9398,2.15,
+Transformer,Held-out,CWE-89-SQL-injection,11,8,0.3175,0.9520,2.20,
+Transformer,Held-out,PHP_CWE-434,13,10,0.3119,0.9439,5.41,
+Transformer,Held-out,EPS_CWE-434,13,10,0.3233,0.9493,2.49,
+Transformer,Held-out,ZipSlip,17,14,0.3117,0.8990,3.25,
+Transformer,Held-out,CVE-2017-12635_6,11,8,0.3632,0.9535,2.12,
+Transformer,Held-out,CVE-2020-13942,11,8,0.3227,0.9202,2.13,
+Transformer,Held-out,CVE-2020-23839,19,16,0.3278,0.9232,3.64,
+Transformer,Held-out,Juice-Shop,13,10,0.3131,0.9426,2.52,

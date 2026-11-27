@@ -1,0 +1,161 @@
+{
+  "scenario": "Bruteforce_CWE-307",
+  "model_used_to_pick": "transformer",
+  "test_windows": 9132,
+  "malicious_windows": 1370,
+  "call_distribution_tv_distance": 0.2549,
+  "over_represented_in_malicious": [
+    {
+      "call": "read",
+      "malicious_share": 0.2017,
+      "benign_share": 0.1252
+    },
+    {
+      "call": "poll",
+      "malicious_share": 0.0971,
+      "benign_share": 0.0597
+    },
+    {
+      "call": "writev",
+      "malicious_share": 0.089,
+      "benign_share": 0.0616
+    },
+    {
+      "call": "semop",
+      "malicious_share": 0.0561,
+      "benign_share": 0.0308
+    },
+    {
+      "call": "fcntl",
+      "malicious_share": 0.0556,
+      "benign_share": 0.0309
+    }
+  ],
+  "examples": [
+    {
+      "case": "highest-scoring attack window when held out (still below \u03c4: no held-out detections)",
+      "index": 8369,
+      "label": 1,
+      "target_length": 100,
+      "calls": 25,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.5534,
+        "LSTM Seen (all)": 0.9946,
+        "LSTM Held-out": 0.6236,
+        "Transformer Seen": 0.997,
+        "Transformer Seen (all)": 0.9985,
+        "Transformer Held-out": 0.7831
+      },
+      "thresholds": {
+        "LSTM Seen": 0.7864,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.9275,
+        "Transformer Seen": 0.7767,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.9141
+      },
+      "sequence": "wait4 select wait4 select wait4 select wait4 select wait4 select wait4 select clone wait4 select wait4 select wait4 select wait4 select wait4 select wait4 select"
+    },
+    {
+      "case": "missed when held out but caught when seen (held-out false negative)",
+      "index": 8310,
+      "label": 1,
+      "target_length": 100,
+      "calls": 100,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.9995,
+        "LSTM Seen (all)": 1.0,
+        "LSTM Held-out": 0.2147,
+        "Transformer Seen": 0.9996,
+        "Transformer Seen (all)": 0.9999,
+        "Transformer Held-out": 0.1532
+      },
+      "thresholds": {
+        "LSTM Seen": 0.7864,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.9275,
+        "Transformer Seen": 0.7767,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.9141
+      },
+      "sequence": "writev shutdown close read semop epoll_wait accept semop getsockname open read close fcntl\u00d72 read writev poll read writev poll read stat open\u00d73 fstat read\u00d72 close write writev write times shutdown \u2026"
+    },
+    {
+      "case": "missed in every condition (false negative, lowest seen (all) score)",
+      "index": 8924,
+      "label": 1,
+      "target_length": 200,
+      "calls": 200,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.1404,
+        "LSTM Seen (all)": 0.0987,
+        "LSTM Held-out": 0.0026,
+        "Transformer Seen": 0.074,
+        "Transformer Seen (all)": 0.0817,
+        "Transformer Held-out": 0.0125
+      },
+      "thresholds": {
+        "LSTM Seen": 0.7864,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.9275,
+        "Transformer Seen": 0.7767,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.9141
+      },
+      "sequence": "setitimer open fstat\u00d74 mmap munmap close rename umask\u00d72 chmod chdir umask setitimer\u00d72 brk\u00d72 writev write times poll read writev shutdown close read semop epoll_wait accept semop getsockname open read close \u2026"
+    },
+    {
+      "case": "highest-scoring benign window when held out (still below \u03c4: no false alarms)",
+      "index": 4493,
+      "label": 0,
+      "target_length": 50,
+      "calls": 50,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.4482,
+        "LSTM Seen (all)": 0.3448,
+        "LSTM Held-out": 0.581,
+        "Transformer Seen": 0.2059,
+        "Transformer Seen (all)": 0.552,
+        "Transformer Held-out": 0.6894
+      },
+      "thresholds": {
+        "LSTM Seen": 0.7864,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.9275,
+        "Transformer Seen": 0.7767,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.9141
+      },
+      "sequence": "epoll_wait accept semop getsockname open read close mmap\u00d72 fcntl\u00d72 mmap brk mmap read writev poll read writev poll read stat open\u00d73 mmap fstat read close write mmap\u00d72 poll read\u00d72 brk \u2026"
+    },
+    {
+      "case": "typical benign window (true negative)",
+      "index": 5771,
+      "label": 0,
+      "target_length": 50,
+      "calls": 50,
+      "unknown_tokens": 0,
+      "probabilities": {
+        "LSTM Seen": 0.2046,
+        "LSTM Seen (all)": 0.1402,
+        "LSTM Held-out": 0.0063,
+        "Transformer Seen": 0.1654,
+        "Transformer Seen (all)": 0.1776,
+        "Transformer Held-out": 0.0167
+      },
+      "thresholds": {
+        "LSTM Seen": 0.7864,
+        "LSTM Seen (all)": 0.903,
+        "LSTM Held-out": 0.9275,
+        "Transformer Seen": 0.7767,
+        "Transformer Seen (all)": 0.9332,
+        "Transformer Held-out": 0.9141
+      },
+      "sequence": "fstat read close setitimer rt_sigaction rt_sigprocmask poll read\u00d72 getcwd open write\u00d72 close umask\u00d72 getcwd chdir setitimer open fstat\u00d74 mmap munmap close rename umask\u00d72 chmod chdir umask setitimer\u00d72 brk\u00d72 writev write \u2026"
+    }
+  ]
+}

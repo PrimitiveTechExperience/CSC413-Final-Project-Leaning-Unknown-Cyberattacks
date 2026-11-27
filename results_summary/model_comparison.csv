@@ -1,0 +1,10 @@
+Condition,Metric,Scenarios,Transformer − LSTM,Transformer better,LSTM better,Sign-test p
+Seen,AUROC,15,0.001,6,9,0.6072
+Seen,AUPRC,15,-0.010,7,8,1.0000
+Seen,F1,15,-0.007,7,8,1.0000
+Seen (all),AUROC,15,-0.018,1,14,0.0010
+Seen (all),AUPRC,15,-0.029,3,12,0.0352
+Seen (all),F1,15,-0.040,0,14,0.0001
+Held-out,AUROC,15,-0.024,6,9,0.6072
+Held-out,AUPRC,15,-0.035,6,9,0.6072
+Held-out,F1,15,-0.003,2,6,0.2891
