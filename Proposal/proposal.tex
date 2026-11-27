@@ -46,6 +46,14 @@
   University of Toronto\\
   Mississauga, ON, L5L 1C6 \\
   \texttt{arman.hovhannisyan@mail.utoronto.ca} \\
+  \And
+  Evan Tao\\
+    Department of Mathematical and Computer Sciences\\
+    University of Toronto\\
+    Mississauga, ON, L5L 1C6 \\
+  \texttt{  evan.tao@mail.utoronto.ca} }
+
+
   % \AND
   % Coauthor \\
   % Affiliation \\
@@ -61,7 +69,6 @@
   % Affiliation \\
   % Address \\
   % \texttt{email} \\
-}
 
 
 \begin{document}
@@ -71,7 +78,7 @@
 
 
 \begin{abstract}
-  Deep learning models often perform well at Host-Based Intrusion Detection. However, it can be difficult to determine whether this is due to generalisation of malicious patterns, or if the model is simply remembering the data it has been trained on. New vulnerabilities are frequently discovered, so detection models should avoid relying on detecting known attacks. Here, we will use the LID-DS-2021 dataset to examine this problem. LID-DS-2021 is a modern IDS dataset containing system call logs from a Linux system during 15 attack scenarios. 2 supervised models are trained on sequences of 50, 100, or 200 variable length system calls labelled as benign or malicious. The models only see the name of the system calls and not any arguments. Both networks are trained and tested on a scenario where they are seeing attacks they have already seen, and another scenario where they are not seeing any attacks from one scenario. The difference in performance between the 2 will allow us to understand how much the models are remembering the attacks. Comparing the results from the LSTM and Transformer model will allow us to understand if attention based models generalise differently to recurrent models. Comparing results from different window sizes will allow us to understand if having more context helps the models detect unseen attacks. As all unseen scenarios are from the LID-DS-2021 dataset we will be able to understand how well the models generalise between scenarios within this dataset, but not how well they will detect arbitrary zero-day attacks.
+  Deep learning models for host-based intrusion detection systems often show strong performance. However, it is unclear whether they have learned generalizable patterns or are simply memorizing attacks. Here we propose to investigate this using the LID-DS-2021 dataset, a modern dataset containing system call logs from a Linux system covering 15 attack scenarios. Two supervised models (an LSTM and a Transformer encoder) are trained on variable-length windows of 50, 100, and 200 system calls, labeled as either benign or malicious. Each network is trained and tested in both a seen-attack setting (training and testing on the same scenario) and a held-out setting (where the attacks from one scenario are withheld during training, while its benign recordings remain available). The difference in performance between the two settings gives an indication of how much the attack detection is due to memorization. Comparing the performance of the LSTM and Transformer under the same protocol also indicates whether attention-based models generalize differently from recurrent models. Our results will indicate generalization across scenarios rather than detection of arbitrary zero-day attacks.
 \end{abstract}
 
 
@@ -312,20 +319,26 @@ where $w_0$ and $w_1$ are the weights for the benign
 and malicious classes, calculated using only the
 training data.
 
-We train with Adam (learning rate $10^{-3}$, batch size
-256) for at most 20 epochs, and stop early once the
-validation loss has not improved for three epochs,
-keeping the weights from the epoch with the lowest
-validation loss.
+We train with Adam (batch size 256) for at most 20 epochs,
+and stop early once the validation loss has not improved
+for three epochs, keeping the weights from the epoch with
+the lowest validation loss. The LSTM uses a learning rate
+of $10^{-3}$. At that rate the Transformer's training loss
+stopped improving after the first epoch, so we compared
+$10^{-3}$, $3\times10^{-4}$, and $10^{-4}$ on a reduced
+sample of the pooled training and validation data and
+chose $3\times10^{-4}$, which gave the lowest validation
+loss. This choice used validation data only; no test
+data was used.
 
 A window is predicted to be malicious when its probability
 is greater than a threshold $\tau$. We select $\tau$ as the
 value that maximizes F1 on the allowed validation data,
 before evaluating the models on the test set.
 
-Both models follow the same training procedure and
-threshold-selection method to keep the comparison
-consistent.
+Apart from the learning rate, both models follow the
+same training procedure and threshold-selection method
+to keep the comparison consistent.
 
 We evaluate the LSTM and Transformer using the
 seen-attack and held-out-attack settings described
@@ -441,6 +454,40 @@ Finally, there are also concerns about how intrusion-detection research could be
 \bibliographystyle{plainnat}
 \bibliography{references}
 \section{Appendix}
-    \subsection{Work Division.}
-    lorem ipsum dolor sit amet consectetur adipiscing elit rerum libero aliquip voluptas ad consequat reprehenderit quibusdam in velit et sint quidem dolorem et deserunt ut consectetur minus dignissimos aliquip excepturi in quis distinctio aut temporibus sit laborum sint esse vel sint soluta commodo sed excepturi anim ipsum do temporibus voluptate sit consequatur aute ut optio ex fugiat tempore eu id non pariatur mollitia labore cillum fugiat nostrud vero harum soluta laborum temporibus autem ea est aute anim deserunt id do cillum lorem atque qui similique id assumenda occaecat et ut ea voluptas eu dolor autem quos voluptas provident sed expedita
+    \subsection{Work Division}
+
+    \paragraph{Ryan Lin.}
+    \begin{itemize}
+        \item \textbf{Writing (completed):} Section~\ref{past-literature} (Background and Past Literature) and Section~\ref{data} (Data), including Table~\ref{tab:scenarios}.
+        \item \textbf{Code:} Data pipeline: parsing LID-DS-2021 recordings, filtering entry events and warm-up calls, splitting recordings into per-thread streams, the stratified 70/15/15 recording-level re-split, and generating the 50/100/200-call windows and labels.
+        \item \textbf{Writing (planned):} Limitations section, after experiments are complete.
+        \item \textbf{Coordination:} Maintains the GitHub repository and reviews pull requests for the data pipeline.
+    \end{itemize}
+    
+    \paragraph{Sebastian Sperneac.}
+    \begin{itemize}
+        \item \textbf{Writing (completed):} Section~\ref{introduction} (Introduction), Section~\ref{sec:modelling} (Modelling), including Figure~\ref{fig:model_pipeline}, and Section~\ref{sec:ethics} (Ethical Considerations).
+        \item \textbf{Code:} LSTM and Transformer classifiers (Sections~\ref{model:lstm}--\ref{model:transformer}), the shared training loop with class-weighted BCE, and threshold ($\tau$) selection on validation data.
+        \item \textbf{Writing (planned):} Results section.
+        \item \textbf{Coordination:} Reviews pull requests for model and training code.
+    \end{itemize}
+    
+    \paragraph{Arman Hovhannisyan.}
+    \begin{itemize}
+        \item \textbf{Writing (completed):} Abstract.
+        \item \textbf{Code:} Experiment runner for the seen-attack and held-out-attack settings across all 15 scenarios and three window lengths, including fixed seeds and logging of each run's configuration.
+        \item \textbf{Writing (planned):} Conclusion section.
+    \end{itemize}
+    
+    \paragraph{Evan Tao.}
+    \begin{itemize}
+        \item \textbf{Code:} Evaluation scripts (metrics on test windows, seen vs.\ held-out performance gap per scenario, proportion of malicious windows at each length), plus the result tables and plots.
+        \item \textbf{Writing (planned):} Discussion section, and the dataset statistics table (recordings and windows per class and partition, vocabulary size, unknown-token rate).
+        \item \textbf{Coordination:} Handles communication with the course staff (TA/instructor).
+    \end{itemize}
+
+\paragraph{Collaboration.}
+The team meets weekly on Tuesdays at 9:00\,PM over a video call to review progress and assign tasks. All code is version-controlled on GitHub; each component is developed on its own branch and merged after review by a second team member.
+
+
 \end{document}
