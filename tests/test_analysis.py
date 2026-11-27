@@ -3,8 +3,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
+import json  # noqa: E402
+
 import analyze_results  # noqa: E402
 import export_examples  # noqa: E402
+import variance_check  # noqa: E402
 import verify_results  # noqa: E402
 
 
@@ -51,3 +54,19 @@ def test_call_profile_distance_bounds():
     assert tv == 1.0 and over[0]["call"] == "b"
     tv, _ = export_examples.call_profile([["a", "b"], ["b", "a"]], [0, 1])
     assert tv == 0.0
+
+
+def test_variance_groups_identical_model_files(tmp_path):
+    runs = {"A": b"weights-1", "B": b"weights-2", "C": b"weights-1"}
+    for target, blob in runs.items():
+        d = tmp_path / "lstm" / "seen_all" / target
+        d.mkdir(parents=True)
+        (d / "model.pt").write_bytes(blob)
+        tau = 0.9 if blob == b"weights-1" else 0.8
+        (d / "metrics.json").write_text(json.dumps(
+            {"test": {"threshold": tau}, "history": [{"val_loss": 0.5}, {"val_loss": 0.4}]}))
+    models = variance_check.distinct_models(tmp_path, "lstm")
+    assert [m["name"] for m in models] == ["run A", "run B"]
+    assert [[d.name for d in m["dirs"]] for m in models] == [["A", "C"], ["B"]]
+    assert models[0]["tau"] == 0.9 and models[0]["epochs"] == 2 and models[0]["best_val_loss"] == 0.4
+    assert abs(variance_check.spread([0.70, 0.72, 0.71]) - 0.02) < 1e-12

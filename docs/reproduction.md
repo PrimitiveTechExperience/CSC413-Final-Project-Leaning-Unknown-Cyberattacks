@@ -160,6 +160,7 @@ python scripts/verify_results.py --results-root D:/CSC413-LIDDS/results/full_gpu
 python scripts/summarize_results.py --results-root D:/CSC413-LIDDS/results/full_gpu_capped
 python scripts/analyze_results.py --results-root D:/CSC413-LIDDS/results/full_gpu_capped
 python scripts/export_examples.py --results-root D:/CSC413-LIDDS/results/full_gpu_capped --config configs/local-gpu.yaml
+python scripts/variance_check.py --results-root D:/CSC413-LIDDS/results/full_gpu_capped --config configs/local-gpu.yaml
 ```
 
 - `verify_results.py` checks that every condition and model is evaluated on the
@@ -179,3 +180,9 @@ python scripts/export_examples.py --results-root D:/CSC413-LIDDS/results/full_gp
   the saved predictions, and writes decoded example windows and per-scenario
   call-frequency statistics to [`results_summary/examples.md`](../results_summary/examples.md).
   Loading the largest scenarios needs several GB of RAM.
+- `variance_check.py` groups the saved Seen (all) `model.pt` files by content
+  (all were trained on identical data), checks that each reproduces its own
+  run's saved test predictions, evaluates every distinct model on every
+  target, and writes the spread between them to
+  [`results_summary/variance_lstm.md`](../results_summary/variance_lstm.md).
+  About 10 minutes on a GPU.

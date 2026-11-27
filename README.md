@@ -277,6 +277,25 @@ targets where the first condition scores higher / lower; two-sided sign test.
 
 ![AUROC gap per target](figures/auroc_gap.png)
 
+### Run-to-run variance
+
+Each configuration was trained once, but the three LSTM Seen (all) models were
+trained on identical data with identical settings, so evaluating all three on
+every target shows how much results move between training runs
+([results_summary/variance_lstm.md](results_summary/variance_lstm.md)). Each
+model first reproduced its original runs' saved predictions exactly. Across
+the 15 targets, AUROC differs between the three models by 0.009 on average and
+by at most 0.022 (CVE-2014-0160); mean AUROC over targets is 0.713–0.718.
+The Seen (all) − Held-out gap (mean 0.092) is about ten times the average
+between-run spread, and is larger than it for 12 targets (only slightly for
+EPS_CWE-434: 0.025 against 0.017). For
+CVE-2020-9484, CVE-2017-12635_6 and Juice-Shop the gap (≤ 0.008) is within
+run-to-run noise. Differences of about 0.02 or less, such as the LSTM's
+Seen (all) lead over the Transformer (0.018) or Seen versus Seen (all), are of
+the same size as this spread. The models differ only because some runs resumed
+from a checkpoint, not by random seed, so true seed-to-seed variation is
+probably larger.
+
 ### LSTM vs Transformer
 
 Paired by target (Transformer − LSTM): Seen AUROC +0.001 (Transformer better on
@@ -396,10 +415,11 @@ order, which a non-sequential baseline would test directly.
 
 ## Limitations
 
-- **One run per configuration.** We have no repeated seeds, so per-target
-  differences smaller than a few hundredths of AUROC should not be
-  over-interpreted. The three LSTM Seen (all) models give a rough idea of
-  run-to-run variation.
+- **One run per configuration.** We have no repeated seeds. The three LSTM
+  Seen (all) models differ by up to 0.022 AUROC on the same target, so
+  differences of that size should not be over-interpreted, and this is likely
+  a lower bound since those models are not independent seeds. Repeating the
+  Held-out runs with several seeds would give proper error bars.
 - **Window caps.** Each scenario contributes at most 100k training windows, so
   the models see a sample of the larger scenarios.
 - **Label noise.** All calls after the first exploit timestamp in an attack
@@ -459,6 +479,7 @@ scripts/
   summarize_results.py      metric and gap CSVs
   analyze_results.py        tables in results_summary/ and figures in figures/
   export_examples.py        decoded example windows and call-frequency statistics
+  variance_check.py         run-to-run variance from the distinct Seen (all) models
   summarize_data.py, configure_storage.py, extract_scenarios.py, benchmark_gpu.py
 tests/                      unit tests on synthetic recordings (pytest)
 docs/                       reproduction and GPU setup guides
