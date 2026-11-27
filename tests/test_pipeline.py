@@ -366,3 +366,33 @@ def test_all_scenario_seen_control_reuses_trained_model_with_same_results(pipeli
     cfg["paths"]["results_root"] = str(tmp_path / "shared")
     cfg["experiment"].update(model="lstm", setting="held_out", scenario="B")
     assert run_experiment.run(cfg)["runtime"]["reused_model_from"] is None
+
+
+def test_per_model_learning_rate_overrides_shared_rate(pipeline_config):
+    from lidds_gen.training.loop import learning_rate
+
+    cfg = copy.deepcopy(pipeline_config)
+    cfg["training"]["lr"] = 1e-3
+    cfg["training"].pop("lr_by_model", None)
+    cfg["experiment"]["model"] = "transformer"
+    assert learning_rate(cfg) == 1e-3  # no override configured
+    cfg["training"]["lr_by_model"] = {"transformer": 1e-4}
+    assert learning_rate(cfg) == 1e-4
+    cfg["experiment"]["model"] = "lstm"
+    assert learning_rate(cfg) == 1e-3
+
+
+def test_run_all_compares_effective_learning_rate(pipeline_config):
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from run_all import effective_config
+
+    saved = copy.deepcopy(pipeline_config)
+    saved["experiment"]["model"] = "lstm"
+    saved["training"]["lr"] = 1e-3
+    current = copy.deepcopy(saved)
+    current["training"]["lr_by_model"] = {"transformer": 3e-4}
+    # Adding an override for the other model keeps finished LSTM runs valid ...
+    assert effective_config(saved) == effective_config(current)
+    # ... but changing the rate this model trains with is still rejected.
+    current["training"]["lr_by_model"]["lstm"] = 5e-4
+    assert effective_config(saved) != effective_config(current)

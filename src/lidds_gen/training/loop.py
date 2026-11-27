@@ -38,6 +38,13 @@ def resolve_device(name: str) -> torch.device:
     return device
 
 
+def learning_rate(cfg: dict[str, Any]) -> float:
+    """``training.lr``, unless ``training.lr_by_model`` sets one for this model."""
+    tcfg = cfg["training"]
+    model = cfg.get("experiment", {}).get("model")
+    return float((tcfg.get("lr_by_model") or {}).get(model, tcfg["lr"]))
+
+
 def _loader(split: EncodedSplit, cfg: dict[str, Any], shuffle: bool, seed: int) -> DataLoader:
     g = torch.Generator().manual_seed(seed)
     return DataLoader(
@@ -100,7 +107,7 @@ def train_model(
     device = resolve_device(tcfg["device"])
     model.to(device)
     w0, w1 = class_weights(train)
-    opt = torch.optim.Adam(model.parameters(), lr=tcfg["lr"], weight_decay=tcfg["weight_decay"])
+    opt = torch.optim.Adam(model.parameters(), lr=learning_rate(cfg), weight_decay=tcfg["weight_decay"])
 
     best_loss, best_state, patience, history = float("inf"), None, 0, []
     start_epoch, stopped = 0, False

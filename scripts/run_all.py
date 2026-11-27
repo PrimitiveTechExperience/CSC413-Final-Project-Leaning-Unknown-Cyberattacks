@@ -22,8 +22,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from lidds_gen.config import dump_config, experiment_run_dir, load_config  # noqa: E402
 from lidds_gen.data import SCENARIOS  # noqa: E402
+from lidds_gen.training.loop import learning_rate  # noqa: E402
 
 RUN_EXPERIMENT = Path(__file__).resolve().parent / "run_experiment.py"
+
+
+def effective_config(cfg: dict) -> dict:
+    """Config with the learning rate resolved for this run's model, so adding a
+    per-model override for one model does not invalidate the other's finished runs."""
+    out = copy.deepcopy(cfg)
+    out["training"]["lr"] = learning_rate(cfg)
+    out["training"].pop("lr_by_model", None)
+    return out
 
 
 def main() -> None:
@@ -54,7 +64,7 @@ def main() -> None:
                     out = experiment_run_dir(cfg) / "metrics.json"
                     if out.exists():
                         saved = load_config(out.parent / "config.yaml")
-                        if saved != cfg:
+                        if effective_config(saved) != effective_config(cfg):
                             raise ValueError(f"Existing run has different config: {out.parent}; "
                                              "choose a new paths.results_root")
                         print(f"[skip] {out}")
