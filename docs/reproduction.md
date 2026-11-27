@@ -179,3 +179,52 @@ python scripts/export_examples.py --results-root D:/CSC413-LIDDS/results/full_gp
   the saved predictions, and writes decoded example windows and per-scenario
   call-frequency statistics to [`results_summary/examples.md`](../results_summary/examples.md).
   Loading the largest scenarios needs several GB of RAM.
+
+## 7. Baselines (optional, CPU only)
+
+Both baselines need the prepared caches and the same config the grid was run
+with, and both cross-check their windows against the neural runs under
+`paths.results_root` (a mismatch fails that run). Their output goes next to,
+not inside, `paths.results_root`, so the summary scripts above are unaffected.
+Finished runs are skipped on a rerun (`--overwrite` recomputes).
+
+### Bag-of-calls logistic regression
+
+```powershell
+python scripts/run_logreg.py --config configs/local-gpu.yaml
+```
+
+Each window becomes the frequency of each system call in it (order discarded),
+standardized, and a class-balanced L2 logistic regression is trained in the same
+Seen, Seen (all) and Held-out conditions as the neural models, on the same
+windows. τ is chosen on validation by `evaluation.threshold_metric`, as for the
+neural models, so all metrics compare directly. Each scenario's cache is loaded
+once; Seen (all) is fit once and reused for every target. The run checks train,
+validation and test window and malicious counts against each neural run's
+`dataset_summary.json` and test labels against its `test_predictions.npz`.
+Writes `<results_root>_logreg/logreg/<condition>/<scenario>/{metrics.json,test_predictions.npz}`
+(`metrics.json` includes the 10 calls weighted most towards malicious and
+benign), `logreg_overall.csv` (same columns as `results_summary/overall.csv`)
+and `logreg_per_scenario.csv`. Peak memory is similar to one held-out run.
+
+### STIDE
+
+STIDE (Hofmeyr et al., 1998) stores every
+length-n system-call sequence seen in a target's benign training recordings and
+scores each test window by the fraction of its n-grams that were never seen. It
+never sees an attack, so it is a held-out result by construction:
+
+```powershell
+python scripts/run_stide.py --config configs/local-gpu.yaml
+```
+
+- Uses n = 3, 6 and 10 by default (`--ngram 6` for the classic setting only).
+- Learns from the target's benign training recordings only (one database per
+  application, as in the original method); the score is the fraction of a
+  window's n-grams never seen there.
+- The threshold τ keeps the false-positive rate on benign validation windows at
+  or below 1% (`--max-fpr`). AUROC and AUPRC do not depend on it.
+- Writes `<results_root>_stide/stide_n<n>/held_out/<scenario>/{metrics.json,test_predictions.npz}`
+  and `<results_root>_stide/stide_summary.csv` (per scenario plus a mean row per n).
+  Compare its AUROC/AUPRC with the Held-out rows; its F1 uses a different
+  threshold rule from the neural models, so treat it as secondary.
