@@ -70,3 +70,45 @@ def test_variance_groups_identical_model_files(tmp_path):
     assert [[d.name for d in m["dirs"]] for m in models] == [["A", "C"], ["B"]]
     assert models[0]["tau"] == 0.9 and models[0]["epochs"] == 2 and models[0]["best_val_loss"] == 0.4
     assert abs(variance_check.spread([0.70, 0.72, 0.71]) - 0.02) < 1e-12
+
+
+def test_stide_tables_pair_stide_with_held_out(tmp_path):
+    for n, scenario, auroc in ((6, "A", 0.9), (6, "B", 0.5)):
+        run = tmp_path / f"stide_n{n}" / "held_out" / scenario
+        run.mkdir(parents=True)
+        test = {"auroc": auroc, "auprc": 0.4, "f1": 0.1, "precision": 0.2, "recall": 0.1, "fpr": 0.01}
+        (run / "metrics.json").write_text(json.dumps({"test": test}), encoding="utf-8")
+    stide = analyze_results.load_stide(tmp_path)
+    assert set(stide) == {(6, "A"), (6, "B")}
+
+    def neural(auroc):
+        return {"result": {"test": {"auroc": auroc, "auprc": 0.3, "f1": 0.0, "precision": 0.0,
+                                    "recall": 0.0, "fpr": 0.0}}}
+
+    runs = {("lstm", "held_out", "A"): neural(0.8), ("lstm", "held_out", "B"): neural(0.6),
+            ("lstm", "seen_all", "A"): neural(0.95), ("lstm", "seen_all", "B"): neural(0.7)}
+    t = analyze_results.baseline_tables(runs, stide, {}, ["A", "B"])
+    lstm = next(r for r in t["stide_comparison"][1] if r[1] == "LSTM")
+    assert lstm[2:5] == ["0.000", "1/1", "1.0000"]  # +0.1 on A, -0.1 on B
+    assert lstm[8:10] == ["-0.125", "0/2"]
+    assert t["held_out_auroc_by_scenario"][1][-1][1] == "0.700"
+    assert "logreg_comparison" not in t
+    assert analyze_results.load_stide(tmp_path / "missing") == {}
+
+
+def test_logreg_loaded_and_compared_in_same_condition(tmp_path):
+    for condition, scenario, auroc in (("held_out", "A", 0.7), ("seen_all", "A", 0.6)):
+        run = tmp_path / "logreg" / condition / scenario
+        run.mkdir(parents=True)
+        (run / "metrics.json").write_text(json.dumps({"test": {"auroc": auroc, "auprc": 0.2}}), encoding="utf-8")
+    logreg = analyze_results.load_logreg(tmp_path)
+    assert set(logreg) == {("logreg", "held_out", "A"), ("logreg", "seen_all", "A")}
+
+    runs = {("lstm", c, "A"): {"result": {"test": {"auroc": v, "auprc": 0.3}}}
+            for c, v in (("held_out", 0.65), ("seen_all", 0.9))}
+    t = analyze_results.baseline_tables(runs, {}, logreg, ["A"])
+    rows = {(r[0], r[1]): r for r in t["logreg_comparison"][1]}
+    assert rows[("Held-out", "LSTM")][2:4] == ["0.050", "1/0"]
+    assert rows[("Seen (all)", "LSTM")][2:4] == ["-0.300", "0/1"]
+    assert t["logreg_auroc_by_scenario"][1][0] == ["A", "–", "0.600", "0.700"]
+    assert "stide_comparison" not in t

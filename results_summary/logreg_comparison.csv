@@ -1,0 +1,7 @@
+Condition,Neural model,AUROC LogReg − neural,+/−,p,AUPRC LogReg − neural,+/−,p
+Seen,LSTM,-0.017,3/12,0.0352,-0.066,4/11,0.1185
+Seen,Transformer,-0.018,5/10,0.3018,-0.057,5/10,0.3018
+Seen (all),LSTM,-0.080,1/14,0.0010,-0.153,1/14,0.0010
+Seen (all),Transformer,-0.063,3/12,0.0352,-0.124,1/14,0.0010
+Held-out,LSTM,-0.004,6/9,0.6072,-0.017,5/10,0.3018
+Held-out,Transformer,0.021,8/7,1.0000,0.018,7/8,1.0000

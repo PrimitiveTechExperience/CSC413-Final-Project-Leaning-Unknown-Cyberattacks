@@ -235,3 +235,7 @@ python scripts/run_stide.py --config configs/local-gpu.yaml
   and `<results_root>_stide/stide_summary.csv` (per scenario plus a mean row per n).
   Compare its AUROC/AUPRC with the Held-out rows; its F1 uses a different
   threshold rule from the neural models, so treat it as secondary.
+
+`analyze_results.py` picks up both baselines' output automatically (or pass
+`--stide-root` / `--logreg-root`) and adds their tables to `results_summary/`
+and `figures/stide_vs_held_out.png` and `figures/logreg_vs_neural.png`.

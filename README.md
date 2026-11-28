@@ -47,6 +47,13 @@ uses the same pool of training data as Held-out, plus the target's attacks.
    better in Seen (all) (14 of 15 targets, mean AUROC +0.018).
 5. **More context does not help with unseen attacks.** Held-out AUROC is flat
    across 50-, 100- and 200-call windows (0.60–0.63).
+6. **On unseen attacks, the deep models are no better than simple
+   baselines.** Held-out mean AUROC is 0.624 (LSTM) and 0.600 (Transformer),
+   against 0.620 for a logistic regression on call counts trained the same way
+   and 0.633 for STIDE, an anomaly detector that never sees any attack; no
+   per-target difference is significant. The deep models do beat the logistic
+   regression once the attack is in training (Seen (all): 0.716 / 0.698
+   against 0.635).
 
 ![Test AUROC per target scenario](figures/auroc_by_scenario.png)
 
@@ -303,6 +310,112 @@ Paired by target (Transformer − LSTM): Seen AUROC +0.001 (Transformer better o
 (6 of 15, p = 0.61). The architectures differ clearly only in the pooled seen
 condition, where the LSTM is ahead.
 
+### Baselines
+
+Two non-deep baselines were run on exactly the same test windows as the neural
+models (each run checks its windows against the neural runs' saved
+predictions):
+
+- **Bag-of-calls logistic regression.** Each window becomes the frequency of
+  each system call in it (order discarded), and a class-balanced L2 logistic
+  regression is trained in the same Seen, Seen (all) and Held-out conditions,
+  on the same windows, with τ chosen the same way as for the neural models. It
+  tests whether call *order* and learned representations add anything over
+  call *counts*.
+- **STIDE** (Hofmeyr et al., 1998) stores every length-n call sequence in the
+  target's benign training recordings and scores a test window by the fraction
+  of its n-grams never seen there. It never sees an attack, so it is a
+  held-out detector by construction, and it uses less data than our Held-out
+  condition (the target's benign recordings only, no other scenarios). We ran
+  n = 3, 6 and 10; n = 6 is the classic setting.
+
+| Method | Condition | AUROC | AUPRC | F1 | FPR |
+|---|---|---|---|---|---|
+| LSTM | Seen | 0.715 | 0.395 | 0.399 | 0.084 |
+| Transformer | Seen | 0.717 | 0.385 | 0.391 | 0.100 |
+| LogReg | Seen | 0.699 | 0.328 | 0.345 | 0.147 |
+| LSTM | Seen (all) | 0.716 | 0.400 | 0.366 | 0.019 |
+| Transformer | Seen (all) | 0.698 | 0.371 | 0.326 | 0.021 |
+| LogReg | Seen (all) | 0.635 | 0.247 | 0.159 | 0.034 |
+| LSTM | Held-out | 0.624 | 0.263 | 0.076 | 0.002 |
+| Transformer | Held-out | 0.600 | 0.228 | 0.073 | 0.002 |
+| LogReg | Held-out | 0.620 | 0.246 | 0.012 | 0.002 |
+| STIDE n = 3 | Held-out | 0.626 | 0.304 | 0.304 | 0.003 |
+| STIDE n = 6 | Held-out | 0.633 | 0.313 | 0.326 | 0.007 |
+| STIDE n = 10 | Held-out | 0.644 | 0.329 | 0.340 | 0.009 |
+
+Held-out test AUROC per target:
+
+| Target | STIDE n = 3 | STIDE n = 6 | STIDE n = 10 | LogReg | LSTM | Transformer |
+|---|---|---|---|---|---|---|
+| Bruteforce_CWE-307 | 0.842 | 0.850 | 0.852 | 0.831 | 0.856 | 0.837 |
+| CVE-2012-2122 | 0.838 | 0.838 | 0.837 | 0.858 | 0.839 | 0.849 |
+| CVE-2014-0160 | 0.554 | 0.556 | 0.559 | 0.560 | 0.511 | 0.520 |
+| CVE-2017-7529 | 0.959 | 0.959 | 0.960 | 0.887 | 0.888 | 0.575 |
+| CVE-2018-3760 | 0.513 | 0.521 | 0.523 | 0.530 | 0.558 | 0.555 |
+| CVE-2019-5418 | 0.500 | 0.497 | 0.485 | 0.532 | 0.516 | 0.490 |
+| CVE-2020-9484 | 0.514 | 0.522 | 0.526 | 0.525 | 0.552 | 0.542 |
+| CWE-89-SQL-injection | 0.514 | 0.557 | 0.562 | 0.519 | 0.545 | 0.572 |
+| PHP_CWE-434 | 0.531 | 0.534 | 0.536 | 0.502 | 0.558 | 0.543 |
+| EPS_CWE-434 | 0.506 | 0.506 | 0.507 | 0.501 | 0.494 | 0.494 |
+| ZipSlip | 0.526 | 0.531 | 0.539 | 0.491 | 0.499 | 0.504 |
+| CVE-2017-12635_6 | 0.944 | 0.944 | 0.944 | 0.944 | 0.944 | 0.944 |
+| CVE-2020-13942 | 0.502 | 0.505 | 0.507 | 0.540 | 0.520 | 0.519 |
+| CVE-2020-23839 | 0.642 | 0.681 | 0.826 | 0.585 | 0.579 | 0.558 |
+| Juice-Shop | 0.500 | 0.499 | 0.501 | 0.502 | 0.504 | 0.494 |
+
+#### Logistic regression on call counts
+
+![Neural models vs logistic regression per target](figures/logreg_vs_neural.png)
+
+Paired by target (logistic regression − neural model, AUROC):
+
+| Condition | vs LSTM | vs Transformer |
+|---|---|---|
+| Seen | −0.017 (LogReg higher on 3 of 15, p = 0.035) | −0.018 (5 of 15, p = 0.30) |
+| Seen (all) | −0.080 (1 of 15, p = 0.001) | −0.063 (3 of 15, p = 0.035) |
+| Held-out | −0.004 (6 of 15, p = 0.61) | +0.021 (8 of 15, p = 1.0) |
+
+- **Single scenario:** counting calls gets close to the deep models
+  (0.699 against 0.715–0.717).
+- **All 15 scenarios pooled:** the deep models are clearly better. The
+  logistic regression drops from 0.699 (Seen) to 0.635 (Seen (all)) because one
+  linear rule over call counts cannot fit 15 different attacks at once, while
+  the LSTM and Transformer score the same with pooled and single-scenario
+  training. This is where the extra capacity of the deep models pays off.
+- **Held out:** all three are the same (0.600–0.624), and they succeed and
+  fail on the same targets. Whatever the deep models learn beyond call counts
+  helps only with attacks they have seen.
+- The logistic regression's held-out F1 is even lower (0.012) because the same
+  τ problem (a threshold tuned on other scenarios' attacks) is worse for it.
+
+#### STIDE
+
+![STIDE vs Held-out AUROC per target](figures/stide_vs_held_out.png)
+
+Paired by target, STIDE (n = 6) minus the Held-out models: AUROC +0.009
+against the LSTM (STIDE higher on 7 of 15, p = 1.0) and +0.034 against the
+Transformer (9 of 15, p = 0.61); AUPRC +0.050 (11 of 15, p = 0.12) and +0.085
+(12 of 15, p = 0.035). Against Seen (all), STIDE is lower by 0.065–0.082
+AUROC (on 13–14 of 15 targets, p ≤ 0.007).
+
+- **The same targets are detectable.** STIDE is well above chance on exactly
+  the four targets where the held-out models transfer (Bruteforce,
+  CVE-2012-2122, CVE-2017-7529, CouchDB), and near chance on almost all the
+  others.
+- **STIDE is clearly ahead on two targets.** CVE-2017-7529 (0.959 against
+  0.888 and 0.575) and CVE-2020-23839, where longer n-grams help a lot (0.642
+  at n = 3, 0.826 at n = 10, against 0.579 and 0.558 held out). It also has
+  higher AUPRC for Bruteforce (0.745 against 0.561 and 0.540).
+- **F1 is not directly comparable.** STIDE's τ keeps the false-positive rate on
+  the target's own benign validation windows at or below 1%, while the neural
+  τ is chosen for F1 on other scenarios' attacks. STIDE's higher F1 (0.33
+  against 0.08) mostly reflects this: a threshold set from benign data alone
+  avoids the over-high τ described under [Errors](#errors-at-the-chosen-threshold).
+
+All baseline tables (including AUPRC per target and every sign test) are in
+[results_summary/results.md](results_summary/results.md).
+
 ### Window length
 
 ![Mean AUROC by window length](figures/auroc_by_length.png)
@@ -385,7 +498,20 @@ rank correlation of 0.93 (LSTM) and 0.84 (Transformer). Where an attack looks
 like normal activity at the level of call frequencies (TV distance below 0.11
 for the other 11 targets), nothing transfers. This suggests that what carries
 over to unseen attacks is mostly *which calls occur and how often*, not their
-order, which a non-sequential baseline would test directly.
+order. The logistic regression on call counts confirms it: held out, it
+matches both deep models (0.620 against 0.624 and 0.600, no significant
+per-target difference), while with the attacks in training the deep models are well ahead of it.
+
+The STIDE baseline points the same way. A detector that has never seen any attack,
+and has only the target's benign recordings, matches the held-out models on
+AUROC and has higher AUPRC (significantly so only against the Transformer).
+So for an unseen attack, the attacks of the other 14 scenarios add
+essentially nothing over knowing what the target application normally does;
+the supervised models' advantage (about 0.07–0.08 AUROC over STIDE) appears
+only when the target's own attacks are in training.
+The one target where STIDE improves strongly with longer n-grams
+(CVE-2020-23839, 0.64 → 0.83 from n = 3 to 10) is a case where call *order*
+does carry signal that the held-out models do not pick up.
 
 **Unexpected results.**
 
@@ -480,6 +606,8 @@ scripts/
   analyze_results.py        tables in results_summary/ and figures in figures/
   export_examples.py        decoded example windows and call-frequency statistics
   variance_check.py         run-to-run variance from the distinct Seen (all) models
+  run_stide.py              STIDE n-gram baseline on the same test windows
+  run_logreg.py             bag-of-calls logistic regression baseline
   summarize_data.py, configure_storage.py, extract_scenarios.py, benchmark_gpu.py
 tests/                      unit tests on synthetic recordings (pytest)
 docs/                       reproduction and GPU setup guides

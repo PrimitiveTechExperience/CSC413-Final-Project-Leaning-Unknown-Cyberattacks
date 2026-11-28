@@ -7,8 +7,10 @@ Writes Markdown/CSV tables to --output and PNG figures to --figures:
 Tables: overall means, per-scenario metrics, generalization gaps, LSTM vs
 Transformer, per-window-length AUROC, error counts, training summary, dataset
 statistics, and parameter counts. Figures: loss curves, per-scenario AUROC,
-AUROC gaps, per-length AUROC, and test score distributions. Missing runs are
-left blank, so the script can be run before the grid has finished.
+AUROC gaps, per-length AUROC, and test score distributions. If
+scripts/run_stide.py or scripts/run_logreg.py output exists (default
+<results-root>_stide / _logreg), baseline tables and figures are added. Missing runs are left blank, so the
+script can be run before the grid has finished.
 """
 from __future__ import annotations
 
@@ -30,7 +32,7 @@ from lidds_gen.data import SCENARIOS  # noqa: E402
 MODELS = ("lstm", "transformer")
 CONDITIONS = ("seen", "seen_all", "held_out")
 LENGTHS = ("50", "100", "200")
-LABEL = {"lstm": "LSTM", "transformer": "Transformer", "seen": "Seen", "seen_all": "Seen (all)",
+LABEL = {"lstm": "LSTM", "transformer": "Transformer", "logreg": "LogReg", "seen": "Seen", "seen_all": "Seen (all)",
          "held_out": "Held-out"}
 SHORT = {"Bruteforce_CWE-307": "Bruteforce", "CWE-89-SQL-injection": "SQL injection",
          "PHP_CWE-434": "PHP upload", "EPS_CWE-434": "EPS upload"}
@@ -210,6 +212,96 @@ def tables(runs, scenarios) -> dict[str, tuple[list, list]]:
     return t
 
 
+def load_stide(root: Path | None) -> dict:
+    """{(n, scenario): metrics.json} from scripts/run_stide.py, or {} when there is no STIDE output."""
+    if root is None or not root.is_dir():
+        return {}
+    stide = {}
+    for path in sorted(root.glob("stide_n*/held_out/*/metrics.json")):
+        n = int(path.parents[2].name.removeprefix("stide_n"))
+        stide[(n, path.parent.name)] = json.loads(path.read_text(encoding="utf-8"))
+    return stide
+
+
+def stide_metric(stide, n, scenario, name):
+    m = stide.get((n, scenario))
+    return None if m is None else m["test"].get(name)
+
+
+def load_logreg(root: Path | None) -> dict:
+    """{("logreg", condition, scenario): {"result": metrics.json}} from scripts/run_logreg.py, or {}."""
+    if root is None or not root.is_dir():
+        return {}
+    return {("logreg", path.parents[1].name, path.parent.name):
+            {"result": json.loads(path.read_text(encoding="utf-8"))}
+            for path in sorted(root.glob("logreg/*/*/metrics.json"))}
+
+
+def paired(get_a, get_b, scenarios) -> list:
+    """Mean of a − b over scenarios, wins/losses, and sign-test p (scenarios missing either side are skipped)."""
+    diffs = []
+    for s in scenarios:
+        a, b = get_a(s), get_b(s)
+        if a is not None and b is not None:
+            diffs.append(a - b)
+    wins, losses, p = sign_test(diffs)
+    return [fmt(mean(diffs)), f"{wins}/{losses}", fmt(p, 4)]
+
+
+def baseline_tables(runs, stide, logreg, scenarios) -> dict[str, tuple[list, list]]:
+    """STIDE (held-out by construction: it never sees an attack) and the bag-of-calls logistic regression
+    (trained in the same three conditions as the neural models) next to the neural runs."""
+    t = {}
+    allruns = {**runs, **logreg}
+    ngrams = sorted({n for n, _ in stide})
+    models = MODELS + (("logreg",) if logreg else ())
+    names = ("auroc", "auprc", "f1", "precision", "recall", "fpr")
+
+    rows = [[LABEL[m], LABEL[c], sum((m, c, s) in allruns for s in scenarios)]
+            + [fmt(mean([metric(allruns, m, c, s, k) for s in scenarios])) for k in names]
+            for c in CONDITIONS for m in models]
+    rows += [[f"STIDE n = {n}", LABEL["held_out"], sum((n, s) in stide for s in scenarios)]
+             + [fmt(mean([stide_metric(stide, n, s, k) for s in scenarios])) for k in names] for n in ngrams]
+    t["baselines_overall"] = (["Method", "Condition", "Runs", "AUROC", "AUPRC", "F1", "Precision", "Recall", "FPR"],
+                              rows)
+
+    cols = [(f"STIDE n = {n}", lambda s, k, n=n: stide_metric(stide, n, s, k)) for n in ngrams]
+    cols += [(f"{LABEL[m]} Held-out", lambda s, k, m=m: metric(allruns, m, "held_out", s, k))
+             for m in reversed(models)]
+    for name in ("auroc", "auprc"):
+        rows = [[s] + [fmt(get(s, name)) for _, get in cols] for s in scenarios]
+        rows.append(["**Mean**"] + [fmt(mean([get(s, name) for s in scenarios])) for _, get in cols])
+        t[f"held_out_{name}_by_scenario"] = (["Scenario"] + [h for h, _ in cols], rows)
+
+    if stide:
+        rows = []
+        for n in ngrams:
+            for m in MODELS:
+                row = [f"STIDE n = {n}", LABEL[m]]
+                for c, k in (("held_out", "auroc"), ("held_out", "auprc"), ("seen_all", "auroc")):
+                    row += paired(lambda s: stide_metric(stide, n, s, k), lambda s: metric(runs, m, c, s, k), scenarios)
+                rows.append(row)
+        t["stide_comparison"] = (["STIDE", "Neural model", "AUROC − Held-out", "+/−", "p", "AUPRC − Held-out",
+                                  "+/−", "p", "AUROC − Seen (all)", "+/−", "p"], rows)
+
+    if logreg:
+        rows = [[s] + [fmt(metric(logreg, "logreg", c, s, "auroc")) for c in CONDITIONS] for s in scenarios]
+        rows.append(["**Mean**"] + [fmt(mean([metric(logreg, "logreg", c, s, "auroc") for s in scenarios]))
+                                    for c in CONDITIONS])
+        t["logreg_auroc_by_scenario"] = (["Scenario"] + [f"LogReg {LABEL[c]}" for c in CONDITIONS], rows)
+        rows = []
+        for c in CONDITIONS:
+            for m in MODELS:
+                row = [LABEL[c], LABEL[m]]
+                for k in ("auroc", "auprc"):
+                    row += paired(lambda s: metric(logreg, "logreg", c, s, k), lambda s: metric(runs, m, c, s, k),
+                                  scenarios)
+                rows.append(row)
+        t["logreg_comparison"] = (["Condition", "Neural model", "AUROC LogReg − neural", "+/−", "p",
+                                   "AUPRC LogReg − neural", "+/−", "p"], rows)
+    return t
+
+
 def dataset_table(runs, scenarios):
     rows = []
     for s in scenarios:
@@ -295,7 +387,8 @@ def style(ax, grid_axis="y", integer_x=False):
     ax.set_axisbelow(True)
 
 
-def figures(runs, scenarios, out: Path, plt):
+def figures(runs, scenarios, out: Path, plt, stide=None, logreg=None):
+    stide, logreg = stide or {}, logreg or {}
     plt.rcParams.update({"font.size": 9, "axes.labelcolor": INK2, "axes.titlesize": 9,
                          "axes.titlecolor": INK, "figure.facecolor": "#fcfcfb", "axes.facecolor": "#fcfcfb",
                          "savefig.facecolor": "#fcfcfb", "legend.frameon": False, "legend.fontsize": 8})
@@ -445,6 +538,64 @@ def figures(runs, scenarios, out: Path, plt):
     fig.savefig(out / "score_distributions.png", dpi=200)
     plt.close(fig)
     written.append("score_distributions.png")
+
+    # STIDE (classic n = 6) against each neural Held-out model, one point per target.
+    if any(n == 6 for n, _ in stide):
+        fig, ax = plt.subplots(figsize=(5.2, 4.6))
+        ax.plot([0.4, 1.0], [0.4, 1.0], color=MUTED, lw=1, ls=":", zorder=1)
+        for model in MODELS:
+            pts = [(stide_metric(stide, 6, s, "auroc"), metric(runs, model, "held_out", s, "auroc"), s)
+                   for s in scenarios]
+            pts = [p for p in pts if p[0] is not None and p[1] is not None]
+            ax.scatter([p[0] for p in pts], [p[1] for p in pts], s=38, color=MODEL_COLOR[model],
+                       edgecolor=SURFACE, linewidth=1.2, label=f"{LABEL[model]} Held-out", zorder=3)
+        for s, dx, dy, ha in (("CVE-2017-7529", -0.012, 0.0, "right"), ("CVE-2020-23839", 0.0, -0.04, "center"),
+                              ("CVE-2017-12635_6", -0.012, 0.012, "right"), ("Bruteforce_CWE-307", -0.012, 0.02, "right")):
+            x = stide_metric(stide, 6, s, "auroc")
+            ys = [metric(runs, m, "held_out", s, "auroc") for m in MODELS]
+            if x is not None and all(v is not None for v in ys):
+                name = "CouchDB (both models)" if s == "CVE-2017-12635_6" else SHORT.get(s, s)
+                ax.annotate(name, (x + dx, max(ys) + dy if dy >= 0 else min(ys) + dy), ha=ha,
+                            va="center", fontsize=7.5, color=INK2)
+        ax.set_xlim(0.4, 1.0)
+        ax.set_ylim(0.4, 1.0)
+        ax.set_aspect("equal")
+        style(ax, grid_axis="both")
+        ax.set_xlabel("STIDE (n = 6) test AUROC")
+        ax.set_ylabel("Neural Held-out test AUROC")
+        ax.set_title("Unseen attacks: supervised models vs STIDE\n(above the dotted line = neural model better)",
+                     loc="left")
+        ax.legend(loc="upper left")
+        fig.tight_layout()
+        fig.savefig(out / "stide_vs_held_out.png", dpi=200)
+        plt.close(fig)
+        written.append("stide_vs_held_out.png")
+
+    # Bag-of-calls logistic regression against each neural model, condition by condition.
+    if logreg:
+        fig, axes = plt.subplots(1, 3, figsize=(10, 3.9), sharey=True)
+        for ax, condition in zip(axes, CONDITIONS):
+            ax.plot([0.4, 1.0], [0.4, 1.0], color=MUTED, lw=1, ls=":", zorder=1)
+            for model in MODELS:
+                pts = [(metric(logreg, "logreg", condition, s, "auroc"), metric(runs, model, condition, s, "auroc"))
+                       for s in scenarios]
+                pts = [p for p in pts if p[0] is not None and p[1] is not None]
+                ax.scatter([p[0] for p in pts], [p[1] for p in pts], s=34, color=MODEL_COLOR[model],
+                           edgecolor=SURFACE, linewidth=1.2, label=LABEL[model], zorder=3)
+            ax.set_xlim(0.4, 1.0)
+            ax.set_ylim(0.4, 1.0)
+            ax.set_aspect("equal")
+            style(ax, grid_axis="both")
+            ax.set_title(LABEL[condition], loc="left")
+            ax.set_xlabel("Bag-of-calls LogReg AUROC")
+        axes[0].set_ylabel("Neural model AUROC")
+        fig.legend(*axes[0].get_legend_handles_labels(), loc="upper right", ncol=2)
+        fig.suptitle("Neural models vs bag-of-calls logistic regression per target "
+                     "(above the dotted line = neural model better)", x=0.01, ha="left", color=INK, fontsize=9)
+        fig.tight_layout(rect=(0, 0, 1, 0.95))
+        fig.savefig(out / "logreg_vs_neural.png", dpi=200, bbox_inches="tight", pad_inches=0.15)
+        plt.close(fig)
+        written.append("logreg_vs_neural.png")
     return written
 
 
@@ -454,15 +605,24 @@ def main() -> None:
     ap.add_argument("--output", default="results_summary")
     ap.add_argument("--figures", default="figures")
     ap.add_argument("--no-figures", action="store_true")
+    ap.add_argument("--stide-root", default=None,
+                    help="scripts/run_stide.py output (default: <results-root>_stide, skipped if missing)")
+    ap.add_argument("--logreg-root", default=None,
+                    help="scripts/run_logreg.py output (default: <results-root>_logreg, skipped if missing)")
     args = ap.parse_args()
-    runs = load_runs(Path(args.results_root))
+    root = Path(args.results_root)
+    runs = load_runs(root)
     if not runs:
         raise SystemExit(f"No completed runs under {args.results_root}")
     scenarios = [s for s in SCENARIOS if any(k[2] == s for k in runs)]
+    stide = load_stide(Path(args.stide_root) if args.stide_root else root.with_name(root.name + "_stide"))
+    logreg = load_logreg(Path(args.logreg_root) if args.logreg_root else root.with_name(root.name + "_logreg"))
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
 
     t = tables(runs, scenarios)
+    if stide or logreg:
+        t.update(baseline_tables(runs, stide, logreg, scenarios))
     t["dataset"], pooled = dataset_table(runs, scenarios)
     t["parameters"], t["parameters_by_module"], vocab_sizes = parameter_table(runs)
     for name, (headers, rows) in t.items():
@@ -480,6 +640,15 @@ def main() -> None:
         ("Transformer vs LSTM (paired by scenario)", "model_comparison"),
         ("Mean test AUROC and F1 by requested window length", "by_length"),
         ("Errors at τ, pooled over scenarios", "errors"),
+        ("Baselines next to the neural models (mean over target scenarios; STIDE τ keeps benign validation "
+         "FPR ≤ 1%, LogReg τ is chosen like the neural models)", "baselines_overall"),
+        ("Held-out test AUROC by scenario, baselines and neural models", "held_out_auroc_by_scenario"),
+        ("Held-out test AUPRC by scenario, baselines and neural models", "held_out_auprc_by_scenario"),
+        ("STIDE minus neural model (mean over scenarios; +/− = scenarios where STIDE is higher/lower; "
+         "two-sided sign test)", "stide_comparison"),
+        ("Bag-of-calls logistic regression: test AUROC by scenario and condition", "logreg_auroc_by_scenario"),
+        ("Logistic regression minus neural model in the same condition (+/− = scenarios where LogReg is "
+         "higher/lower; two-sided sign test)", "logreg_comparison"),
         ("Training summary", "training"),
         ("Dataset per scenario (single-scenario splits; windows used after the per-scenario caps)", "dataset"),
         ("Parameter counts", "parameters"),
@@ -490,7 +659,8 @@ def main() -> None:
            f"Generated by `scripts/analyze_results.py` from {complete} completed run(s). "
            "Tables are also saved as CSV in this folder; figures are in `figures/`.", ""]
     for title, key in sections:
-        doc += [f"## {title}", "", markdown(*t[key]), ""]
+        if key in t:
+            doc += [f"## {title}", "", markdown(*t[key]), ""]
     if pooled:
         doc += ["## Pooled training data (all 15 scenarios, Seen (all) control)", "",
                 markdown(["Split", "Recordings (attack)", "Windows available", "Windows used", "% malicious"],
@@ -510,7 +680,7 @@ def main() -> None:
         import matplotlib.pyplot as plt
         fig_dir = Path(args.figures)
         fig_dir.mkdir(parents=True, exist_ok=True)
-        for name in figures(runs, scenarios, fig_dir, plt):
+        for name in figures(runs, scenarios, fig_dir, plt, stide, logreg):
             print(f"[done] figure -> {fig_dir / name}")
 
 
